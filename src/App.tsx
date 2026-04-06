@@ -1387,6 +1387,15 @@ export default function App() {
     }
   };
 
+  const handleVerifyFace = () => {
+    if (user.faceVerified || isVerifying || (lockoutUntil && Date.now() < lockoutUntil)) {
+      return;
+    }
+    
+    setIsVerifyingToOnline(true);
+    playUberSound('message');
+  };
+
   const [isFlashing, setIsFlashing] = useState(false);
 
   // Verification function for going online
@@ -2008,7 +2017,7 @@ export default function App() {
               </div>
 
               <button 
-                onClick={handleVerifyEmailCode}
+                onClick={handleVerifyFace}
                 id="verify-btn"
                 disabled={user.faceVerified || isVerifying || (lockoutUntil ? Date.now() < lockoutUntil : false)}
                 className={`w-full py-5 rounded-2xl font-black text-xl transition-all ${user.faceVerified ? 'bg-green-500 text-white' : (lockoutUntil && Date.now() < lockoutUntil) ? 'bg-gray-800 text-gray-500' : 'bg-white text-black active:scale-95'}`}
