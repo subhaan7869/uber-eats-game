@@ -2639,6 +2639,7 @@ export default function App() {
                       >
                         <span className="text-red-500 font-black text-sm">GO OFFLINE</span>
                       </button>
+                    </motion.div>
                   ) : (
                     /* Offline - Full menu */
                     <motion.div 
