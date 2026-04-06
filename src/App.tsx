@@ -2770,7 +2770,7 @@ export default function App() {
 
                         {/* Common scrollable items */}
                         <div className="space-y-3">
-                          <div className="p-4 rounded-2xl flex items-center gap-4 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
+                          <div className={`p-4 rounded-2xl flex items-center gap-4 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
                             <div className="p-2 bg-blue-600 text-white rounded-lg"><ShieldCheck size={20} /></div>
                             <div>
                               <p className="text-sm font-black">Safety Toolkit</p>
