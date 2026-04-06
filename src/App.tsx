@@ -2395,12 +2395,13 @@ export default function App() {
 
   // Check for existing session on mount
   useEffect(() => {
-    const session = cloudStorage.getCurrentSession();
-    if (session) {
-      setAuthSession(session);
-      loadUserProfile(session.userId);
-      setCurrentScreen('home');
-    }
+    // Temporarily disable automatic session check to debug white screen
+    // const session = cloudStorage.getCurrentSession();
+    // if (session) {
+    //   setAuthSession(session);
+    //   loadUserProfile(session.userId);
+    //   setCurrentScreen('home');
+    // }
   }, []);
 
   // Verification function for going online
