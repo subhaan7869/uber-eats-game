@@ -497,20 +497,43 @@ function App() {
     { rank: 8, name: 'You', tier: user.tier, points: user.points, deliveries: user.deliveries, rating: user.rating, earnings: earnings }
   ]);
 
-  // Initialize with a test notification
+  // Initialize with test notifications
   useEffect(() => {
-    const testNotification: OfflineNotification = {
-      id: Math.random().toString(),
-      type: 'missed_opportunity',
-      title: '👋 Welcome to Uber Eats!',
-      message: 'Complete your profile to start receiving orders and earning money.',
-      priority: 'high',
-      timestamp: Date.now(),
-      isRead: false,
-      actionable: true,
-      actionUrl: 'documents'
-    };
-    setOfflineNotifications([testNotification]);
+    const notifications: OfflineNotification[] = [
+      {
+        id: Math.random().toString(),
+        type: 'missed_opportunity',
+        title: '👋 Welcome to Uber Eats!',
+        message: 'Complete your profile to start receiving orders and earning money.',
+        priority: 'high',
+        timestamp: Date.now(),
+        isRead: false,
+        actionable: true,
+        actionUrl: 'documents'
+      },
+      {
+        id: Math.random().toString(),
+        type: 'surge_alert',
+        title: '🔥 Surge Pricing Active!',
+        message: 'High demand in your area. Earn 1.8x more on all orders!',
+        priority: 'high',
+        timestamp: Date.now() - 1000,
+        isRead: false,
+        actionable: true,
+        actionUrl: 'home'
+      },
+      {
+        id: Math.random().toString(),
+        type: 'rank_decay_warning',
+        title: '📊 Your Stats',
+        message: 'You have completed 0 deliveries today. Start earning now!',
+        priority: 'medium',
+        timestamp: Date.now() - 2000,
+        isRead: false,
+        actionable: false
+      }
+    ];
+    setOfflineNotifications(notifications);
   }, []);
 
 // Enhanced sound system with toggle
@@ -695,27 +718,43 @@ function App() {
   };
 
   const verifyFace = () => {
+    console.log('Face verification started');
     setIsVerifying(true);
-    playSound('notification'); // Play notification sound for verification start
+    playSound('notification');
+    
+    // Add immediate feedback notification
+    const startNotification: OfflineNotification = {
+      id: Math.random().toString(),
+      type: 'rank_decay_warning',
+      title: '📷 Face Verification Started',
+      message: 'Please wait while we verify your identity...',
+      priority: 'medium',
+      timestamp: Date.now(),
+      isRead: false,
+      actionable: false
+    };
+    setOfflineNotifications(prev => [startNotification, ...prev]);
+    
     setTimeout(() => {
+      console.log('Face verification completed');
       setIsVerifying(false);
       setUser(prev => ({ ...prev, faceVerified: true }));
       setCurrentScreen('home');
-      playSound('success'); // Play success sound for verification complete
+      playSound('success');
       
-      // Add a welcome notification
-      const welcomeNotification: OfflineNotification = {
+      // Add completion notification
+      const completionNotification: OfflineNotification = {
         id: Math.random().toString(),
         type: 'rank_decay_warning',
-        title: '🎉 Welcome!',
-        message: 'Face verification completed! You can now go online and start earning.',
+        title: '✅ Verification Complete!',
+        message: 'Face verification successful! You can now go online and start earning.',
         priority: 'high',
         timestamp: Date.now(),
         isRead: false,
         actionable: true,
         actionUrl: 'home'
       };
-      setOfflineNotifications(prev => [welcomeNotification, ...prev]);
+      setOfflineNotifications(prev => [completionNotification, ...prev]);
     }, 3000);
   };
 
@@ -2191,6 +2230,21 @@ function App() {
         zIndex: 9999
       }}>
         ENHANCED UI
+      </div>
+      
+      {/* Notification debug indicator */}
+      <div style={{
+        position: 'absolute',
+        top: '5px',
+        left: '5px',
+        backgroundColor: 'rgba(0,255,0,0.8)',
+        color: '#fff',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        fontSize: '10px',
+        zIndex: 9999
+      }}>
+        🔔 {offlineNotifications.length} NOTIFICATIONS
       </div>
       
       {/* Background Pattern */}
