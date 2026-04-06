@@ -1030,14 +1030,13 @@ function App() {
               </div>
             </div>
             
-            {/* Enhanced Map Area */}
+            {/* Enhanced Map Area with Active Orders */}
             <div style={{
               flex: 1,
               background: 'linear-gradient(135deg, rgba(28,28,30,0.9) 0%, rgba(44,44,46,0.9) 100%)',
               borderRadius: '16px',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              flexDirection: 'column',
               position: 'relative',
               overflow: 'hidden',
               backdropFilter: 'blur(10px)',
@@ -1058,16 +1057,61 @@ function App() {
                 opacity: 0.5
               }} />
               
-              <div style={{ textAlign: 'center', color: '#999', zIndex: 1 }}>
-                <div style={{ fontSize: '48px', marginBottom: '10px', opacity: 0.6 }}>🗺️</div>
-                <p style={{ fontSize: '14px', fontWeight: '500' }}>
-                  Map View • {activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''}
-                </p>
-                {user.isOnline && (
-                  <p style={{ fontSize: '12px', opacity: 0.7, marginTop: '5px' }}>
-                    Waiting for orders...
+              {/* Active Orders Display */}
+              {activeOrders.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px',
+                  right: '10px',
+                  backgroundColor: 'rgba(0,0,0,0.8)',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  zIndex: 10
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>
+                    🚚 Active Orders ({activeOrders.length})
+                  </div>
+                  {activeOrders.map((order, index) => (
+                    <div key={order.id} style={{
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      marginBottom: '6px',
+                      border: '1px solid rgba(255,255,255,0.2)'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>
+                        {order.restaurantName} → {order.customerName}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#ccc', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Status: {order.status}</span>
+                        <span>£{order.estimatedPay.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div style={{ 
+                flex: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                zIndex: 1 
+              }}>
+                <div style={{ textAlign: 'center', color: '#999' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '10px', opacity: 0.6 }}>🗺️</div>
+                  <p style={{ fontSize: '14px', fontWeight: '500' }}>
+                    Map View • {activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''}
                   </p>
-                )}
+                  {user.isOnline && activeOrders.length === 0 && (
+                    <p style={{ fontSize: '12px', opacity: 0.7, marginTop: '5px' }}>
+                      Waiting for orders...
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -1542,29 +1586,47 @@ function App() {
             </div>
             
             <div style={{
-              backgroundColor: '#4CAF50',
+              background: 'linear-gradient(135deg, rgba(52,199,89,0.8) 0%, rgba(52,199,89,0.6) 100%)',
               padding: '30px',
-              borderRadius: '12px',
+              borderRadius: '16px',
               textAlign: 'center',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(52,199,89,0.3)'
             }}>
-              <div style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '8px' }}>
+              <div style={{ fontSize: '36px', fontWeight: '900', marginBottom: '8px', color: '#fff' }}>
                 £{earnings.toFixed(2)}
               </div>
-              <div style={{ fontSize: '16px', opacity: 0.9 }}>Today's Earnings</div>
+              <div style={{ fontSize: '16px', opacity: 0.9, color: '#fff' }}>Today's Earnings</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '15px' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>
+                    {user.deliveries}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Deliveries</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>
+                    £{user.deliveries > 0 ? (earnings / user.deliveries).toFixed(2) : '0.00'}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Per Delivery</div>
+                </div>
+              </div>
             </div>
             
             <div style={{
-              backgroundColor: '#2196F3',
+              background: 'linear-gradient(135deg, rgba(33,150,243,0.8) 0%, rgba(33,150,243,0.6) 100%)',
               padding: '20px',
-              borderRadius: '12px',
+              borderRadius: '16px',
               textAlign: 'center',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(33,150,243,0.3)'
             }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px', color: '#fff' }}>
                 £{bankBalance.toFixed(2)}
               </div>
-              <div style={{ fontSize: '14px', opacity: 0.9 }}>Bank Balance</div>
+              <div style={{ fontSize: '14px', opacity: 0.9, color: '#fff' }}>Bank Balance</div>
             </div>
             
             {/* Financial Pressure Display */}
