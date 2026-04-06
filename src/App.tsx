@@ -57,6 +57,9 @@ import {
   Car
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Shared sleep function - outside any component
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier, DriverRating, Quest } from './types';
 import { cloudStorage, CloudProfile } from './cloudStorage';
 
@@ -540,9 +543,6 @@ export default function App() {
     if (deviceInfo.isDesktop) return 'desktop';
     return 'desktop';
   };
-
-  // Sleep utility function
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   const [verifyTimeoutUntil, setVerifyTimeoutUntil] = useState<number | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<{ latitude: number, longitude: number, intensity: number, size: number }[]>([]);
@@ -967,7 +967,7 @@ export default function App() {
     }
 
     setUploadingDoc(label);
-    await new Promise(r => setTimeout(r, 1500)); // Simulate upload time
+    await sleep(1500); // Simulate upload time
     setUploadedDocs(prev => [...prev, label]);
     setUploadingDoc(null);
   };
@@ -1390,7 +1390,7 @@ export default function App() {
   const [isFlashing, setIsFlashing] = useState(false);
 
   // When going online, keep the bottom menu closed by default
-  useEffect(() => {
+  useEffect(async () => {
     setIsVerifying(true);
     playUberSound('message');
     
@@ -1426,7 +1426,7 @@ export default function App() {
       sendNotification("Identity Verified", "Your face verification was successful.");
       playUberSound('accept');
       
-      await new Promise(r => setTimeout(r, 1500));
+      await sleep(1500);
       stopCamera();
       setIsVerifyingToOnline(false);
       setIsVerifying(false);
