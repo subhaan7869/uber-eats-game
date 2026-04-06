@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+console.log('🚀 APP-COMPLETE.TSX LOADED - Enhanced Version');
+
 type Screen = 'home' | 'earnings' | 'account' | 'onboarding' | 'documents' | 'face_verification' | 'orders' | 'map' | 'settings' | 'notifications' | 'analytics' | 'leaderboard';
 
 interface AnalyticsData {

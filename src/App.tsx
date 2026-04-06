@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+console.log('❌ APP.TSX LOADED - Basic Version (This should NOT appear!)');
+
 import { useState, useEffect, useRef, useMemo, ReactNode } from 'react';
 import { 
   Navigation, 
@@ -1981,18 +1983,6 @@ export default function App() {
       const timer = setTimeout(() => {
         // Randomly decide between smart matching and normal matching
         const useSmart = Math.random() < 0.6; // ~60% smart, 40% normal
-        const newOrder = useSmart ? generateSmartOrder() : generateNormalOrder();
-        if (newOrder) {
-          setPendingOrder(newOrder);
-          setOrderExpiryTimer(10);
-          
-          // Enhanced notifications based on order type
-          let soundType: 'order' | 'accept' | 'message' | 'complete' | 'smart_match' | 'normal_match' | 'urgent' | 'bonus' | 'error' | 'notification' | 'success' = useSmart ? 'smart_match' : 'normal_match';
-          let notificationTitle = "New Order";
-          let notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName}`;
-          
-          if (newOrder.orderType === 'Premium') {
-            soundType = 'bonus';
             notificationTitle = "🌟 Premium Order!";
             notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • High Value!`;
           } else if (newOrder.orderType === 'Urgent') {
