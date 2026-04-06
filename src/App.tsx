@@ -1410,8 +1410,6 @@ export default function App() {
         capturedPic = canvas.toDataURL('image/jpeg');
       }
     }
-
-    await sleep(2000);
     
     // Sometimes fail to simulate "face not recognised"
     const isSuccess = Math.random() > 0.15;
