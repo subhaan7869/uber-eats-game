@@ -607,12 +607,56 @@ function App() {
 
   const acceptOrder = () => {
     if (pendingOrder) {
-      setActiveOrders([...activeOrders, { ...pendingOrder, status: 'accepted' }]);
+      const newOrder = { ...pendingOrder, status: 'accepted' as const };
+      setActiveOrders([...activeOrders, newOrder]);
       const pay = pendingOrder.estimatedPay;
       setEarnings(prev => prev + pay);
       setFinancialPressure(prev => ({ ...prev, currentWeekProgress: prev.currentWeekProgress + pay }));
       setPendingOrder(null);
       playSound('order_accept');
+      
+      // Start order progression
+      setTimeout(() => {
+        setActiveOrders(prev => prev.map(order => 
+          order.id === newOrder.id ? { ...order, status: 'picked_up' as const } : order
+        ));
+        playSound('notification');
+      }, 5000); // Pick up after 5 seconds
+      
+      setTimeout(() => {
+        setActiveOrders(prev => prev.map(order => 
+          order.id === newOrder.id ? { ...order, status: 'delivered' as const } : order
+        ));
+        playSound('order_complete');
+        
+        // Remove delivered order after showing completion
+        setTimeout(() => {
+          setActiveOrders(prev => prev.filter(order => order.id !== newOrder.id));
+          setUser(prev => ({ ...prev, deliveries: prev.deliveries + 1 }));
+          setAnalyticsData(prev => ({
+            ...prev,
+            todayStats: {
+              ...prev.todayStats,
+              orders: prev.todayStats.orders + 1,
+              earnings: prev.todayStats.earnings + pay,
+              avgOrderValue: (prev.todayStats.earnings + pay) / (prev.todayStats.orders + 1)
+            }
+          }));
+          
+          // Add completion notification
+          const completionNotification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'rank_decay_warning',
+            title: '✅ Order Completed!',
+            message: `Successfully delivered from ${newOrder.restaurantName}. Earned £${pay.toFixed(2)}`,
+            priority: 'medium',
+            timestamp: Date.now(),
+            isRead: false,
+            actionable: false
+          };
+          setOfflineNotifications(prev => [completionNotification, ...prev]);
+        }, 2000);
+      }, 12000); // Deliver after 12 seconds total
     }
   };
 
@@ -1112,13 +1156,32 @@ function App() {
                       marginBottom: '6px',
                       border: '1px solid rgba(255,255,255,0.2)'
                     }}>
-                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600' }}>
+                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: '600', marginBottom: '4px' }}>
                         {order.restaurantName} → {order.customerName}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#ccc', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Status: {order.status}</span>
+                      <div style={{ fontSize: '11px', color: '#ccc', display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span>Status: {
+                          order.status === 'accepted' ? '📍 Going to restaurant' :
+                          order.status === 'picked_up' ? '🥡 Picked up food' :
+                          order.status === 'delivered' ? '✅ Delivered' : 'Unknown'
+                        }</span>
                         <span>£{order.estimatedPay.toFixed(2)}</span>
                       </div>
+                      {order.status === 'accepted' && (
+                        <div style={{ fontSize: '10px', color: '#ff9500', textAlign: 'center' }}>
+                          ⏱️ Arriving at restaurant...
+                        </div>
+                      )}
+                      {order.status === 'picked_up' && (
+                        <div style={{ fontSize: '10px', color: '#34c759', textAlign: 'center' }}>
+                          ⏱️ Delivering to customer...
+                        </div>
+                      )}
+                      {order.status === 'delivered' && (
+                        <div style={{ fontSize: '10px', color: '#34c759', textAlign: 'center' }}>
+                          ✅ Order completed!
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
