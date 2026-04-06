@@ -18,6 +18,12 @@ export interface Order {
   // Indicates how this order was assigned to you
   // 'smart' = advanced matching, 'normal' = simple nearby trip
   matchingType?: 'smart' | 'normal';
+  // Type of order for special features
+  orderType?: 'Standard' | 'Smart Match' | 'Premium' | 'Urgent' | 'Bonus';
+  // Surge pricing and boost information
+  surgeMultiplier?: number; // e.g., 1.5 for 50% surge
+  boostAmount?: number; // Additional boost amount in £
+  restaurantWaitTime?: number; // Estimated wait time in minutes
 }
 
 export interface ChatMessage {
@@ -28,7 +34,35 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-export type AppScreen = 'onboarding' | 'documents' | 'face_verification' | 'email_verification' | 'home' | 'earnings' | 'inbox' | 'account' | 'chat' | 'uber_pro' | 'wallet' | 'opportunities' | 'safety' | 'earnings_detail' | 'banking';
+export interface DriverRating {
+  id: string;
+  orderId: string;
+  rating: number; // 1-5 stars
+  feedback?: string;
+  timestamp: number;
+  customerName: string;
+  categories: {
+    communication: number;
+    navigation: number;
+    professionalism: number;
+    speed: number;
+  };
+}
+
+export interface Quest {
+  id: string;
+  title: string;
+  description: string;
+  type: 'daily' | 'weekly' | 'special';
+  target: number;
+  current: number;
+  reward: number;
+  icon: string;
+  completed: boolean;
+  expiresAt?: number;
+}
+
+export type AppScreen = 'onboarding' | 'documents' | 'face_verification' | 'email_verification' | 'home' | 'earnings' | 'inbox' | 'account' | 'chat' | 'uber_pro' | 'wallet' | 'opportunities' | 'safety' | 'earnings_detail' | 'banking' | 'heatmap';
 
 export type UberProTier = 'Blue' | 'Gold' | 'Platinum' | 'Diamond';
 

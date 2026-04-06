@@ -57,7 +57,8 @@ import {
   Car
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier } from './types';
+import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier, DriverRating, Quest } from './types';
+import { cloudStorage, CloudProfile } from './cloudStorage';
 
 // Optional cloud profile sync endpoint (configure in env if you want real cloud save)
 const CLOUD_PROFILE_URL =
@@ -107,28 +108,46 @@ export default function App() {
   
   // --- Cloud profile helpers ---
   const loadUserProfileFromCloud = async (): Promise<Partial<UserProfile> | null> => {
-    if (!CLOUD_PROFILE_URL) return null;
     try {
-      const res = await fetch(CLOUD_PROFILE_URL, { credentials: 'include' });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data as Partial<UserProfile>;
-    } catch {
+      const cloudProfile = await cloudStorage.loadProfile();
+      if (cloudProfile) {
+        return {
+          name: cloudProfile.name,
+          rating: cloudProfile.rating,
+          tier: cloudProfile.tier,
+          points: cloudProfile.points,
+          deliveries: cloudProfile.deliveries,
+          isOnline: cloudProfile.isOnline,
+          documentsUploaded: cloudProfile.documentsUploaded,
+          faceVerified: cloudProfile.faceVerified,
+          email: cloudProfile.email,
+          emailVerifiedDeviceId: cloudProfile.emailVerifiedDeviceId,
+          profilePic: cloudProfile.profilePic,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error loading cloud profile:', error);
       return null;
     }
   };
 
   const saveUserProfileToCloud = async (profile: UserProfile) => {
-    if (!CLOUD_PROFILE_URL) return;
     try {
-      await fetch(CLOUD_PROFILE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(profile),
-      });
-    } catch {
-      // Ignore cloud errors; local save still works
+      const cloudProfile: CloudProfile = {
+        ...profile,
+        earnings,
+        bankBalance,
+        purchasedItems,
+        totalDistance: activeOrders.reduce((sum, order) => sum + order.estimatedDistance, 0),
+        totalTime: activeOrders.reduce((sum, order) => sum + order.estimatedTime, 0),
+        achievements: [], // TODO: Implement achievements
+        lastSaved: Date.now(),
+      };
+      
+      await cloudStorage.saveProfile(cloudProfile);
+    } catch (error) {
+      console.error('Error saving cloud profile:', error);
     }
   };
 
@@ -184,6 +203,33 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // Request notification permissions for background notifications
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Request permission when user first interacts with the app
+      const requestPermission = async () => {
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            sendNotification("Notifications Enabled", "You'll receive order notifications even when the app is in the background!");
+          }
+        } catch (error) {
+          console.error('Error requesting notification permission:', error);
+        }
+      };
+
+      // Request permission on first user interaction (click/touch)
+      const handleFirstInteraction = () => {
+        requestPermission();
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+      };
+
+      document.addEventListener('click', handleFirstInteraction, { once: true });
+      document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+    }
   }, []);
 
   // Device id for "new phone" detection (stored locally per device)
@@ -294,6 +340,126 @@ export default function App() {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [customerTimers, setCustomerTimers] = useState<Record<string, number>>({});
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [driverRatings, setDriverRatings] = useState<DriverRating[]>([]);
+  const [quests, setQuests] = useState<Quest[]>(() => {
+    // Initialize with some default quests
+    const now = Date.now();
+    return [
+      {
+        id: 'daily-deliveries',
+        title: 'Daily Deliveries',
+        description: 'Complete 10 deliveries today',
+        type: 'daily',
+        target: 10,
+        current: 0,
+        reward: 15,
+        icon: '📦',
+        completed: false,
+        expiresAt: now + (24 * 60 * 60 * 1000)
+      },
+      {
+        id: 'weekly-earnings',
+        title: 'Weekly Earnings',
+        description: 'Earn £200 this week',
+        type: 'weekly',
+        target: 200,
+        current: 0,
+        reward: 25,
+        icon: '💰',
+        completed: false,
+        expiresAt: now + (7 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 'perfect-ratings',
+        title: 'Perfect Ratings',
+        description: 'Get 5 ratings of 4.5+ stars',
+        type: 'weekly',
+        target: 5,
+        current: 0,
+        reward: 20,
+        icon: '⭐',
+        completed: false,
+        expiresAt: now + (7 * 24 * 60 * 60 * 1000)
+      },
+      {
+        id: 'surge-hunter',
+        title: 'Surge Hunter',
+        description: 'Complete 5 deliveries during surge pricing',
+        type: 'special',
+        target: 5,
+        current: 0,
+        reward: 30,
+        icon: '⚡',
+        completed: false
+      }
+    ];
+  });
+
+  // Generate random rating after delivery completion
+  const generateRating = (order: Order) => {
+    setTimeout(() => {
+      const rating = 3.5 + Math.random() * 1.5; //3.5-5.0 rating bias
+      const newRating: DriverRating = {
+        id: Math.random().toString(36).substr(2, 9),
+        orderId: order.id,
+        rating: Math.min(5, Math.max(1, rating)),
+        feedback: [
+          "Great delivery, very quick!",
+          "Professional and friendly",
+          "Food arrived hot and fresh",
+          "Excellent communication",
+          "Fast and efficient service",
+          "Very satisfied with the service",
+          "Would order again",
+          "Perfect delivery experience"
+        ][Math.floor(Math.random() * 8)],
+        timestamp: Date.now(),
+        customerName: order.customerName,
+        categories: {
+          communication: 4 + Math.random(),
+          navigation: 4 + Math.random(),
+          professionalism: 4 + Math.random(),
+          speed: 4 + Math.random()
+        }
+      };
+      
+      setDriverRatings(prev => [newRating, ...prev]);
+      
+      // Update user rating (rolling average)
+      const allRatings = [...driverRatings, newRating];
+      const avgRating = allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length;
+      setUser(prev => ({ ...prev, rating: parseFloat(avgRating.toFixed(2)) }));
+      
+      // Show notification for good ratings
+      if (newRating.rating >= 4.5) {
+        sendNotification("Excellent Rating!", `You received ${newRating.rating.toFixed(1)} stars from ${order.customerName}`, 'normal');
+        playUberSound('complete');
+      }
+      
+      // Update quest progress
+      updateQuestProgress('perfect-ratings', 1);
+    }, 5000 + Math.random() * 10000); // 5-15 seconds after delivery
+  };
+
+  // Update quest progress
+  const updateQuestProgress = (questId: string, increment: number) => {
+    setQuests(prev => prev.map(quest => {
+      if (quest.id === questId && !quest.completed) {
+        const newCurrent = Math.min(quest.current + increment, quest.target);
+        const isCompleted = newCurrent >= quest.target;
+        
+        if (isCompleted && !quest.completed) {
+          // Award quest completion bonus
+          setEarnings(e => e + quest.reward);
+          sendNotification("Quest Completed!", `${quest.title} - £${quest.reward} bonus earned!`, 'high');
+          playUberSound('bonus');
+        }
+        
+        return { ...quest, current: newCurrent, completed: isCompleted };
+      }
+      return quest;
+    }));
+  };
 
   // --- Email verification (new device sign-ins) ---
   const [emailAddressInput, setEmailAddressInput] = useState<string>(user.email);
@@ -307,6 +473,73 @@ export default function App() {
   const [mapZoom, setMapZoom] = useState(1.0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerifyingToOnline, setIsVerifyingToOnline] = useState(false);
+
+  // Responsive design system
+  const [deviceInfo, setDeviceInfo] = useState(() => {
+    if (typeof window === 'undefined') return { isMobile: false, isTablet: false, isDesktop: true, screenWidth: 1920, screenHeight: 1080 };
+    
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    
+    // Device detection based on screen size
+    const isMobile = width <= 768;
+    const isTablet = width > 768 && width <= 1024;
+    const isDesktop = width > 1024;
+    
+    return {
+      isMobile,
+      isTablet,
+      isDesktop,
+      screenWidth: width,
+      screenHeight: height,
+      orientation: width > height ? 'landscape' : 'portrait',
+      isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      pixelRatio: window.devicePixelRatio || 1
+    };
+  });
+
+  // Update device info on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setDeviceInfo({
+        isMobile: window.innerWidth <= 768,
+        isTablet: window.innerWidth > 768 && window.innerWidth <= 1024,
+        isDesktop: window.innerWidth > 1024,
+        screenWidth: window.innerWidth,
+        screenHeight: window.innerHeight,
+        orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
+        isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+        pixelRatio: window.devicePixelRatio || 1
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  // Responsive utility functions
+  const getResponsiveValue = (mobile: any, tablet: any, desktop: any) => {
+    if (deviceInfo.isMobile) return mobile;
+    if (deviceInfo.isTablet) return tablet;
+    if (deviceInfo.isDesktop) return desktop;
+    return mobile; // fallback
+  };
+
+  const getResponsiveClass = (mobileClass: string, tabletClass: string, desktopClass: string) => {
+    return getResponsiveValue(mobileClass, tabletClass, desktopClass);
+  };
+
+  const getResponsiveSize = () => {
+    if (deviceInfo.isMobile) return 'mobile';
+    if (deviceInfo.isTablet) return 'tablet';
+    if (deviceInfo.isDesktop) return 'desktop';
+    return 'desktop';
+  };
   const [verifyTimeoutUntil, setVerifyTimeoutUntil] = useState<number | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<{ latitude: number, longitude: number, intensity: number, size: number }[]>([]);
@@ -389,6 +622,90 @@ export default function App() {
 
   const [isBackgrounded, setIsBackgrounded] = useState(false);
 
+  // Surge pricing state
+  const [currentSurge, setCurrentSurge] = useState(1.0);
+  const [surgeAreas, setSurgeAreas] = useState<Array<{lat: number, lng: number, radius: number, multiplier: number}>>([]);
+
+  // Earnings heatmap state
+  const [earningsData, setEarningsData] = useState(() => {
+    // Generate sample earnings data for the past week
+    const data = [];
+    const now = Date.now();
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = now - (i * 24 * 60 * 60 * 1000);
+      for (let hour = 0; hour < 24; hour++) {
+        const hourStart = dayStart + (hour * 60 * 60 * 1000);
+        const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 12 && hour <= 14) || (hour >= 18 && hour <= 21);
+        const isWeekend = i <= 1; // Last 2 days are weekend
+        const baseEarnings = 5 + Math.random() * 10;
+        const multiplier = isPeakHour ? (isWeekend ? 2.5 : 2.0) : (isWeekend ? 1.5 : 1.0);
+        data.push({
+          hour: hourStart,
+          earnings: baseEarnings * multiplier,
+          orders: Math.floor(1 + Math.random() * 4),
+          day: i,
+          hourOfDay: hour
+        });
+      }
+    }
+    return data;
+  });
+
+  // Calculate surge pricing based on time and demand
+  const calculateSurgeMultiplier = () => {
+    const hour = new Date().getHours();
+    const dayOfWeek = new Date().getDay();
+    
+    let baseMultiplier = 1.0;
+    
+    // Peak hours: 7-9 AM, 12-2 PM, 6-9 PM
+    if ((hour >= 7 && hour <= 9) || (hour >= 12 && hour <= 14) || (hour >= 18 && hour <= 21)) {
+      baseMultiplier += 0.3;
+    }
+    
+    // Weekend boost
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      baseMultiplier += 0.2;
+    }
+    
+    // Late night boost (10 PM - 2 AM)
+    if (hour >= 22 || hour <= 2) {
+      baseMultiplier += 0.4;
+    }
+    
+    // Random demand spikes
+    if (Math.random() < 0.15) {
+      baseMultiplier += Math.random() * 0.5;
+    }
+    
+    return Math.min(baseMultiplier, 2.5); // Cap at 2.5x
+  };
+
+  // Update surge pricing periodically
+  useEffect(() => {
+    const updateSurge = () => {
+      const newSurge = calculateSurgeMultiplier();
+      setCurrentSurge(newSurge);
+      
+      // Generate random surge areas
+      if (location && newSurge > 1.2) {
+        const areas = Array.from({ length: Math.floor(Math.random() * 3) + 1 }).map(() => ({
+          lat: location.latitude + (Math.random() - 0.5) * 0.02,
+          lng: location.longitude + (Math.random() - 0.5) * 0.02,
+          radius: 0.005 + Math.random() * 0.01,
+          multiplier: 1.2 + Math.random() * 0.8
+        }));
+        setSurgeAreas(areas);
+      } else {
+        setSurgeAreas([]);
+      }
+    };
+    
+    updateSurge();
+    const interval = setInterval(updateSurge, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, [location]);
+
   // Customer Response Timer Logic
   useEffect(() => {
     const interval = setInterval(() => {
@@ -470,9 +787,47 @@ export default function App() {
     };
   }, []);
 
-  const sendNotification = (title: string, body: string) => {
-    // In-app only: store message for Inbox/alerts, no OS notifications
+  const sendNotification = (title: string, body: string, priority: 'normal' | 'high' = 'normal') => {
+    // Always store in-app notification
     setNotifications(prev => [`${title}: ${body}`, ...prev]);
+    
+    // Show browser notification if supported and permission granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      // If app is in background, use service worker
+      if (document.hidden && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          payload: {
+            title,
+            body,
+            icon: '/favicon.ico',
+            tag: `uber-eats-${Date.now()}`,
+            data: { priority, timestamp: Date.now() }
+          }
+        });
+      } else {
+        // Show notification directly when app is active
+        const notification = new Notification(title, {
+          body,
+          icon: '/favicon.ico',
+          tag: `uber-eats-${Date.now()}`,
+          badge: '/favicon.ico',
+          requireInteraction: priority === 'high',
+          silent: false
+        });
+        
+        // Auto-close normal priority notifications after 5 seconds
+        if (priority === 'normal') {
+          setTimeout(() => notification.close(), 5000);
+        }
+        
+        // Handle notification click
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
+    }
   };
 
   const generateEmailVerificationCode = () => {
@@ -483,7 +838,6 @@ export default function App() {
   const sendEmailVerificationCode = async (email: string) => {
     if (!email) return;
 
-    const senderEmail = 'uberclone@game.com';
     const now = Date.now();
     if (emailSendCooldownUntil && now < emailSendCooldownUntil) return;
 
@@ -491,33 +845,84 @@ export default function App() {
     const code = generateEmailVerificationCode();
     const expiresAt = now + 10 * 60_000; // 10 minutes
 
-    // Local fallback: keep code in memory (demo-style)
+    // Always store code locally as backup
     setPendingEmailCode(code);
     setPendingEmailCodeExpiresAt(expiresAt);
     setEmailCodeInput('');
     setEmailSendCooldownUntil(now + 30_000); // 30s resend cooldown
 
     try {
-      if (CLOUD_SEND_EMAIL_CODE_URL) {
-        // Demo integration: your backend can send a real email to the user
-        await fetch(CLOUD_SEND_EMAIL_CODE_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, code, deviceId }),
-        });
+      // Try to send real email first
+      const emailApiUrl = CLOUD_SEND_EMAIL_CODE_URL || 'http://localhost:3001/api/send-verification-code';
+      
+      const response = await fetch(emailApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          code, 
+          userName: user.name,
+          deviceId 
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          sendNotification(
+            "Email Verification Code Sent", 
+            `Check your inbox at ${email}. Demo code: ${code}`,
+            'normal'
+          );
+        } else {
+          throw new Error(result.error || 'Failed to send email');
+        }
+      } else {
+        throw new Error('Email service unavailable');
       }
-    } catch {
-      // Ignore; we'll still show the code in UI/notification for this simulation
+    } catch (error) {
+      console.error('Error sending email:', error);
+      // Fallback to local-only mode
+      sendNotification(
+        "Email Verification Code Generated", 
+        `Email service unavailable. Your code is: ${code}`,
+        'normal'
+      );
     } finally {
       setIsSendingEmailCode(false);
-      sendNotification(
-        "Email Verification Code Sent",
-        `From ${senderEmail}. Demo code: ${code}`
-      );
     }
   };
 
-  // When we land on the email verification screen, ensure we have an active code
+  const verifyEmailCode = async (email: string, code: string) => {
+    try {
+      const emailApiUrl = CLOUD_SEND_EMAIL_CODE_URL || 'http://localhost:3001/api/verify-code';
+      
+      const response = await fetch(emailApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          return true;
+        } else {
+          sendNotification("Verification Failed", result.error || 'Invalid code', 'normal');
+          return false;
+        }
+      } else {
+        // Fallback to local verification
+        return pendingEmailCode === code && Date.now() < (pendingEmailCodeExpiresAt || 0);
+      }
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      // Fallback to local verification
+      return pendingEmailCode === code && Date.now() < (pendingEmailCodeExpiresAt || 0);
+    }
+  };
+
+  // When we land on email verification screen, ensure we have an active code
   useEffect(() => {
     if (emailVerificationRequired && currentScreen !== 'email_verification') {
       setCurrentScreen('email_verification');
@@ -580,7 +985,45 @@ export default function App() {
 
     const distToRest = Math.sqrt(Math.pow(restLat - location.latitude, 2) + Math.pow(restLng - location.longitude, 2)) * MILES_PER_DEGREE;
     const tripDist = Math.sqrt(Math.pow(custLat - restLat, 2) + Math.pow(custLng - restLng, 2)) * MILES_PER_DEGREE;
-    const pay = 3.0 + (tripDist * 1.2) + (Math.random() * 1.5);
+    
+    // Calculate base pay with surge pricing
+    let basePay = 3.0 + (tripDist * 1.2) + (Math.random() * 1.5);
+    let surgeMultiplier = currentSurge;
+    let boostAmount = 0;
+    
+    // Check if order is in a surge area
+    const isInSurgeArea = surgeAreas.some(area => {
+      const dist = Math.sqrt(
+        Math.pow(restLat - area.lat, 2) + Math.pow(restLng - area.lng, 2)
+      );
+      return dist <= area.radius;
+    });
+    
+    if (isInSurgeArea) {
+      surgeMultiplier = Math.max(surgeMultiplier, surgeAreas.find(area => {
+        const dist = Math.sqrt(
+          Math.pow(restLat - area.lat, 2) + Math.pow(restLng - area.lng, 2)
+        );
+        return dist <= area.radius;
+      })?.multiplier || currentSurge);
+    }
+    
+    // Apply surge multiplier
+    const surgedPay = basePay * surgeMultiplier;
+    
+    // Occasionally add small bonus for normal orders
+    const bonusChance = Math.random();
+    let finalPay = surgedPay;
+    let orderType = 'Standard';
+    
+    if (bonusChance < 0.1) {
+      boostAmount = 2.0;
+      finalPay += boostAmount;
+      orderType = 'Bonus';
+    }
+    
+    // Restaurant wait time
+    const restaurantWaitTime = Math.floor(5 + Math.random() * 15); // 5-20 minutes
 
     return {
       id: Math.random().toString(36).substr(2, 9),
@@ -588,14 +1031,18 @@ export default function App() {
       customerName,
       restaurantLocation: { latitude: restLat, longitude: restLng },
       customerLocation: { latitude: custLat, longitude: custLng },
-      estimatedPay: pay,
+      estimatedPay: finalPay,
       estimatedDistance: tripDist,
-      estimatedTime: Math.floor(tripDist * 5 + 4),
+      estimatedTime: Math.floor(tripDist * 5 + 4 + restaurantWaitTime),
       status: 'pending' as const,
-      items: ["Meal Deal", "Soft Drink"],
+      items: orderType === 'Bonus' ? ["Meal Deal", "Soft Drink", "Extra Side"] : ["Meal Deal", "Soft Drink"],
       distToRest,
       pin: Math.floor(1000 + Math.random() * 9000).toString(),
       matchingType: 'normal' as const,
+      orderType,
+      surgeMultiplier: surgeMultiplier > 1.0 ? surgeMultiplier : undefined,
+      boostAmount: boostAmount > 0 ? boostAmount : undefined,
+      restaurantWaitTime,
     };
   };
 
@@ -603,8 +1050,8 @@ export default function App() {
   const generateSmartOrder = () => {
     if (!location) return null;
 
-    // 1. Generate 5 candidate orders
-    const candidates = Array.from({ length: 5 }).map(() => {
+    // 1. Generate 8 candidate orders for better selection
+    const candidates = Array.from({ length: 8 }).map(() => {
       const randomRest = MOCK_RESTAURANTS[Math.floor(Math.random() * MOCK_RESTAURANTS.length)];
       const customerName = MOCK_CUSTOMERS[Math.floor(Math.random() * MOCK_CUSTOMERS.length)];
       
@@ -615,7 +1062,50 @@ export default function App() {
 
       const distToRest = Math.sqrt(Math.pow(restLat - location.latitude, 2) + Math.pow(restLng - location.longitude, 2)) * MILES_PER_DEGREE;
       const tripDist = Math.sqrt(Math.pow(custLat - restLat, 2) + Math.pow(custLng - restLng, 2)) * MILES_PER_DEGREE;
-      const pay = 3.50 + (tripDist * 1.5) + (Math.random() * 2);
+      
+      // Smart orders have better base pay and more variety
+      const orderTypeRoll = Math.random();
+      let basePay = 3.50 + (tripDist * 1.5) + (Math.random() * 2);
+      let items = ["Meal Deal", "Extra Fries", "Coke Zero"];
+      let orderType = 'Smart Match';
+      let surgeMultiplier = currentSurge;
+      let boostAmount = 0;
+      
+      // Check if order is in a surge area (smart orders get priority in surge areas)
+      const isInSurgeArea = surgeAreas.some(area => {
+        const dist = Math.sqrt(
+          Math.pow(restLat - area.lat, 2) + Math.pow(restLng - area.lng, 2)
+        );
+        return dist <= area.radius;
+      });
+      
+      if (isInSurgeArea) {
+        surgeMultiplier = Math.max(surgeMultiplier, surgeAreas.find(area => {
+          const dist = Math.sqrt(
+            Math.pow(restLat - area.lat, 2) + Math.pow(restLng - area.lng, 2)
+          );
+          return dist <= area.radius;
+        })?.multiplier || currentSurge);
+        basePay *= 1.2; // Smart orders get extra boost in surge areas
+      }
+      
+      if (orderTypeRoll < 0.15) {
+        // 15% chance for premium order
+        basePay += 5.0;
+        items = ["Premium Burger", "Large Fries", "Milkshake", "Dessert"];
+        orderType = 'Premium';
+      } else if (orderTypeRoll < 0.3) {
+        // 15% chance for urgent order
+        basePay += 3.0;
+        items = ["Express Meal", "Drink"];
+        orderType = 'Urgent';
+      }
+      
+      // Apply surge multiplier
+      const surgedPay = basePay * surgeMultiplier;
+      
+      // Restaurant wait time (smart orders have slightly better wait times)
+      const restaurantWaitTime = Math.floor(3 + Math.random() * 12); // 3-15 minutes
 
       return {
         id: Math.random().toString(36).substr(2, 9),
@@ -623,14 +1113,18 @@ export default function App() {
         customerName,
         restaurantLocation: { latitude: restLat, longitude: restLng },
         customerLocation: { latitude: custLat, longitude: custLng },
-        estimatedPay: pay,
+        estimatedPay: surgedPay,
         estimatedDistance: tripDist,
-        estimatedTime: Math.floor(tripDist * 5 + 5),
+        estimatedTime: Math.floor(tripDist * 5 + 5 + restaurantWaitTime),
         status: 'pending' as const,
-        items: ["Meal Deal", "Extra Fries", "Coke Zero"],
+        items,
         distToRest,
         pin: Math.floor(1000 + Math.random() * 9000).toString(),
         matchingType: 'smart' as const,
+        orderType,
+        surgeMultiplier: surgeMultiplier > 1.0 ? surgeMultiplier : undefined,
+        boostAmount: boostAmount > 0 ? boostAmount : undefined,
+        restaurantWaitTime,
       };
     });
 
@@ -713,8 +1207,30 @@ export default function App() {
         if (newOrder) {
           setPendingOrder(newOrder);
           setOrderExpiryTimer(10);
-          sendNotification("High Priority Trip", `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName}`);
-          playUberSound('order');
+          
+          // Enhanced notifications based on order type
+          let soundType = useSmart ? 'smart_match' : 'normal_match';
+          let notificationTitle = "New Order";
+          let notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName}`;
+          
+          if (newOrder.orderType === 'Premium') {
+            soundType = 'bonus';
+            notificationTitle = "🌟 Premium Order!";
+            notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • High Value!`;
+          } else if (newOrder.orderType === 'Urgent') {
+            soundType = 'urgent';
+            notificationTitle = "🚨 Urgent Order!";
+            notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • Time Sensitive!`;
+          } else if (newOrder.orderType === 'Bonus') {
+            soundType = 'bonus';
+            notificationTitle = "💰 Bonus Order!";
+            notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • Extra Pay!`;
+          } else if (useSmart) {
+            notificationTitle = "🎯 Smart Match";
+          }
+          
+          sendNotification(notificationTitle, notificationBody, 'high');
+          playUberSound(soundType);
         }
       }, baseDelay * jitter);
       return () => clearTimeout(timer);
@@ -785,96 +1301,93 @@ export default function App() {
 
   const [emailVerifyRequestedForOnline, setEmailVerifyRequestedForOnline] = useState(false);
 
-  const handleConfirmEmailCode = () => {
+  const playUberSound = (type: 'order' | 'accept' | 'message' | 'complete' | 'smart_match' | 'normal_match' | 'urgent' | 'bonus') => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      const createBeepSequence = (frequencies: number[], durations: number[], volume: number = 0.1) => {
+        frequencies.forEach((freq, index) => {
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
+          oscillator.type = index % 2 === 0 ? 'sine' : 'triangle';
+          oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime + index * 0.1);
+          gainNode.gain.setValueAtTime(volume, audioCtx.currentTime + index * 0.1);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + index * 0.1 + durations[index]);
+          
+          oscillator.start(audioCtx.currentTime + index * 0.1);
+          oscillator.stop(audioCtx.currentTime + index * 0.1 + durations[index]);
+        });
+      };
+
+      if (type === 'order') {
+        // Classic Uber order ping - ascending chime
+        createBeepSequence([440, 554, 659], [0.15, 0.15, 0.2], 0.12);
+      } else if (type === 'smart_match') {
+        // Smart match - more sophisticated triple chime
+        createBeepSequence([523, 659, 784], [0.1, 0.1, 0.15], 0.15);
+      } else if (type === 'normal_match') {
+        // Normal match - simple double beep
+        createBeepSequence([440, 554], [0.1, 0.1], 0.08);
+      } else if (type === 'urgent') {
+        // Urgent order - rapid alert pattern
+        createBeepSequence([880, 880, 1047], [0.08, 0.08, 0.15], 0.15);
+      } else if (type === 'bonus') {
+        // Bonus earnings - celebration sound
+        createBeepSequence([659, 784, 880, 1047], [0.1, 0.1, 0.1, 0.2], 0.12);
+      } else if (type === 'accept') {
+        // Accept - satisfying confirmation
+        createBeepSequence([659, 523], [0.1, 0.15], 0.08);
+      } else if (type === 'message') {
+        // Message - subtle notification
+        createBeepSequence([660, 880], [0.08, 0.08], 0.06);
+      } else if (type === 'complete') {
+        // Complete - success fanfare
+        createBeepSequence([523, 659, 784, 1047], [0.12, 0.12, 0.12, 0.25], 0.15);
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
     if (!pendingEmailCode || !pendingEmailCodeExpiresAt) return;
-    const now = Date.now();
-    if (now > pendingEmailCodeExpiresAt) {
-      sendNotification("Code Expired", "Request a new verification code.");
-      return;
+    
+    const email = emailAddressInput || user.email;
+    const code = emailCodeInput.trim();
+    
+    // First try server verification
+    const isValid = await verifyEmailCode(email, code);
+    
+    if (isValid) {
+      // Mark this device as verified for the account
+      setUser(u => ({
+        ...u,
+        email: email,
+        emailVerifiedDeviceId: deviceId,
+        // If they requested this verification to go online, allow it immediately.
+        isOnline: emailVerifyRequestedForOnline ? true : u.isOnline,
+      }));
+
+      setEmailVerifyRequestedForOnline(false);
+      setPendingEmailCode(null);
+      setPendingEmailCodeExpiresAt(null);
+      setEmailCodeInput('');
+      playUberSound('accept');
+      sendNotification("Email Verified", "Your email is verified for this device.");
+      setCurrentScreen('home');
+    } else {
+      sendNotification("Verification Failed", "Invalid or expired verification code. Please try again.", 'normal');
     }
-
-    if (emailCodeInput.trim() !== pendingEmailCode) {
-      sendNotification("Incorrect Code", "That email verification code is not correct.");
-      return;
-    }
-
-    // Mark this device as verified for the account
-    setUser(u => ({
-      ...u,
-      email: emailAddressInput || u.email,
-      emailVerifiedDeviceId: deviceId,
-      // If they requested this verification to go online, allow it immediately.
-      isOnline: emailVerifyRequestedForOnline ? true : u.isOnline,
-    }));
-
-    setEmailVerifyRequestedForOnline(false);
-    setPendingEmailCode(null);
-    setPendingEmailCodeExpiresAt(null);
-    setEmailCodeInput('');
-
-    playUberSound('accept');
-    sendNotification("Email Verified", "Your email is verified for this device.");
-    setCurrentScreen('home');
   };
 
   const [isFlashing, setIsFlashing] = useState(false);
 
   // When going online, keep the bottom menu closed by default
   useEffect(() => {
-    if (user.isOnline) {
-      setIsBottomMenuOpen(false);
-    }
-  }, [user.isOnline]);
-
-  const playUberSound = (type: 'order' | 'accept' | 'message' | 'complete') => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      if (type === 'order') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.5);
-      } else if (type === 'accept') {
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.2);
-        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.2);
-      } else if (type === 'message') {
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(660, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.1);
-      } else if (type === 'complete') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1046.5, audioCtx.currentTime + 0.3);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-      }
-    } catch (e) {
-      console.warn("Audio not supported or blocked", e);
-    }
-  };
-
-  const handleVerify = async () => {
-    if (isVerifying) return;
     setIsVerifying(true);
     playUberSound('message');
     
@@ -1125,6 +1638,15 @@ export default function App() {
         setVerifyingDeliveryId(null);
         setEnteredPin("");
         setIsPhotoCaptured(false);
+        
+        // Generate customer rating
+        generateRating(order);
+        
+        // Update quest progress
+        updateQuestProgress('daily-deliveries', 1);
+        if (order.surgeMultiplier && order.surgeMultiplier > 1.0) {
+          updateQuestProgress('surge-hunter', 1);
+        }
         setCustomerTimers(prev => {
           const next = { ...prev };
           delete next[order.id];
@@ -1279,24 +1801,56 @@ export default function App() {
   );
 
   return (
-    <div className={`h-screen w-full font-sans overflow-hidden flex flex-col select-none relative transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-gray-100 text-black'}`}>
-      {/* Status Bar */}
-      <div className={`h-6 w-full flex justify-between items-center px-6 text-[10px] font-medium opacity-80 z-[110] ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-        <span>9:41</span>
-        <div className="flex gap-1 items-center">
-          <Zap size={10} fill="currentColor" />
-          <span>5G</span>
-          <div className={`w-4 h-2 border rounded-[2px] relative ${theme === 'dark' ? 'border-white/40' : 'border-black/40'}`}>
-            <div className={`absolute left-0 top-0 h-full w-3/4 rounded-[1px] ${theme === 'dark' ? 'bg-white' : 'bg-black'}`} />
-          </div>
-        </div>
-      </div>
+    <div className={`relative w-full h-screen overflow-hidden ${theme === 'dark' ? 'bg-black text-white' : 'bg-white text-black'} ${getResponsiveClass('font-sans', 'font-sans', 'font-sans')}`}>
+      {/* Main App Container - Responsive Layout */}
+      <div className={`relative w-full h-full ${getResponsiveClass('max-w-md mx-auto', 'max-w-lg mx-auto', 'max-w-7xl mx-auto')}`}>
+        {/* Mobile-First Navigation */}
+        <AnimatePresence>
+          {currentScreen === 'home' && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={`absolute top-0 left-0 right-0 z-[100] ${getResponsiveClass('px-4', 'px-8', 'px-12')} py-2 ${theme === 'dark' ? 'bg-black/95' : 'bg-white/95'} backdrop-blur-sm border-b ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsSideMenuOpen(true)}
+                    className={`p-2 rounded-full ${getResponsiveClass('bg-white/10', 'bg-white/10', 'bg-white/10')} hover:bg-white/20 transition-colors`}
+                  >
+                    <Menu size={getResponsiveValue(20, 24, 28)} />
+                  </button>
+                  <h1 className={`font-black ${getResponsiveValue('text-lg', 'text-2xl', 'text-3xl')}`}>
+                    Uber Eats
+                  </h1>
+                </div>
+                
+                <div className={`flex items-center gap-4 ${getResponsiveClass('gap-2', 'gap-4', 'gap-6')}`}>
+                  <button
+                    onClick={() => setCurrentScreen('earnings')}
+                    className={`p-2 rounded-full ${getResponsiveClass('bg-white/10', 'bg-white/10', 'bg-white/10')} hover:bg-white/20 transition-colors`}
+                  >
+                    <TrendingUp size={getResponsiveValue(18, 20, 22)} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('inbox')}
+                    className={`p-2 rounded-full ${getResponsiveClass('bg-white/10', 'bg-white/10', 'bg-white/10')} hover:bg-white/20 transition-colors`}
+                  >
+                    <MessageSquare size={getResponsiveValue(18, 20, 22)} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentScreen('account')}
+                    className={`p-2 rounded-full ${getResponsiveClass('bg-white/10', 'bg-white/10', 'bg-white/10')} hover:bg-white/20 transition-colors`}
+                  >
+                    <User size={getResponsiveValue(18, 20, 22)} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {isSideMenuOpen && <SideMenu />}
-      </AnimatePresence>
-
-      <div className="flex-1 relative overflow-hidden">
         <AnimatePresence mode="wait">
           {currentScreen === 'onboarding' && (
             <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full w-full bg-white text-black p-8 flex flex-col justify-center">
@@ -1446,7 +2000,7 @@ export default function App() {
               </div>
 
               <button 
-                onClick={handleVerify}
+                onClick={handleVerifyEmailCode}
                 id="verify-btn"
                 disabled={user.faceVerified || isVerifying || (lockoutUntil ? Date.now() < lockoutUntil : false)}
                 className={`w-full py-5 rounded-2xl font-black text-xl transition-all ${user.faceVerified ? 'bg-green-500 text-white' : (lockoutUntil && Date.now() < lockoutUntil) ? 'bg-gray-800 text-gray-500' : 'bg-white text-black active:scale-95'}`}
@@ -1507,7 +2061,7 @@ export default function App() {
                 )}
 
                 <button
-                  onClick={handleConfirmEmailCode}
+                  onClick={handleVerifyEmailCode}
                   disabled={
                     isSendingEmailCode ||
                     !pendingEmailCode ||
@@ -1603,6 +2157,30 @@ export default function App() {
                       <div className="absolute top-4 left-6 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border border-white/10">
                         Trip Preview
                       </div>
+                      
+                      {/* Order Type and Matching Type Badges */}
+                      <div className="absolute top-4 right-6 flex flex-col gap-2">
+                        {pendingOrder.orderType && pendingOrder.orderType !== 'Standard' && (
+                          <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border backdrop-blur-md ${
+                            pendingOrder.orderType === 'Premium' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                            pendingOrder.orderType === 'Urgent' ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse' :
+                            pendingOrder.orderType === 'Bonus' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                            'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                          }`}>
+                            {pendingOrder.orderType === 'Premium' ? '🌟 Premium' :
+                             pendingOrder.orderType === 'Urgent' ? '🚨 Urgent' :
+                             pendingOrder.orderType === 'Bonus' ? '💰 Bonus' :
+                             pendingOrder.orderType}
+                          </div>
+                        )}
+                        <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border backdrop-blur-md ${
+                          pendingOrder.matchingType === 'smart' 
+                            ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+                            : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                        }`}>
+                          {pendingOrder.matchingType === 'smart' ? '🎯 Smart Match' : '📍 Normal Match'}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex-1 p-8 flex flex-col">
@@ -1610,10 +2188,21 @@ export default function App() {
                         <div>
                           <h2 className="text-4xl font-black mb-1">£{pendingOrder.estimatedPay.toFixed(2)}</h2>
                           <p className="text-orange-400 font-black tracking-widest uppercase text-xs">Estimated Pay</p>
+                          {pendingOrder.surgeMultiplier && (
+                            <p className="text-orange-300 font-black text-xs mt-1">
+                              <Zap size={10} className="inline mr-1" />
+                              {pendingOrder.surgeMultiplier.toFixed(1)}x Surge Applied
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-2xl font-black">{pendingOrder.estimatedTime} min</p>
-                          <p className="text-gray-400 font-bold text-xs uppercase tracking-widest">{pendingOrder.estimatedDistance.toFixed(1)} mi • Total</p>
+                          <p className="text-orange-400 font-black tracking-widest uppercase text-xs">Est. Time</p>
+                          {pendingOrder.restaurantWaitTime && (
+                            <p className="text-orange-300 font-black text-xs mt-1">
+                              {pendingOrder.restaurantWaitTime} min wait at restaurant
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -1672,72 +2261,120 @@ export default function App() {
                 </div>
               )}
 
-              {/* Map Simulation */}
+              {/* Cloud Sync Status Indicator */}
+              <div className={`absolute top-32 left-1/2 -translate-x-1/2 z-50 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2 border ${theme === 'dark' ? 'bg-black/80 border-white/10' : 'bg-white/80 border-black/10'}`}>
+                <div className={`w-2 h-2 rounded-full ${cloudStorage.isCloudSyncAvailable() ? 'bg-blue-500' : 'bg-gray-400'}`} />
+                <span className="text-[9px] font-black tracking-widest uppercase">
+                  {cloudStorage.isCloudSyncAvailable() ? 'Cloud Sync' : 'Local Only'}
+                </span>
+              </div>
+
+              {/* Surge Pricing Indicator */}
+              {currentSurge > 1.0 && (
+                <div className={`absolute top-40 left-1/2 -translate-x-1/2 z-50 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2 border animate-pulse ${
+                  currentSurge > 1.5 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                }`}>
+                  <Zap size={12} />
+                  <span className="text-[9px] font-black tracking-widest uppercase">
+                    Surge {currentSurge.toFixed(1)}x
+                  </span>
+                </div>
+              )}
+
+              {/* Map Simulation - Uber Style */}
               <div 
                 onClick={() => setSelectedMarkerId(null)}
-                className={`absolute inset-0 overflow-hidden transition-all duration-500 ${theme === 'dark' ? 'bg-[#0d0f12]' : 'bg-[#f3f4f2]'} ${(lockoutUntil && Date.now() < lockoutUntil) || Object.values(customerTimers).some(t => Number(t) > 0) ? 'blur-md grayscale opacity-50 pointer-events-none' : ''}`}
+                className={`absolute inset-0 overflow-hidden transition-all duration-500 ${theme === 'dark' ? 'bg-[#1a1d21]' : 'bg-[#f8f9fa]'} ${(lockoutUntil && Date.now() < lockoutUntil) || Object.values(customerTimers).some(t => Number(t) > 0) ? 'blur-md grayscale opacity-50 pointer-events-none' : ''}`}
               >
-                {/* Zoom controls */}
+                {/* Uber-style map background with subtle texture */}
+                <div className="absolute inset-0" style={{ 
+                  background: theme === 'dark' 
+                    ? 'radial-gradient(circle at 50% 50%, #2a2d34 0%, #1a1d21 100%)'
+                    : 'radial-gradient(circle at 50% 50%, #ffffff 0%, #f8f9fa 100%)'
+                }} />
+                
+                {/* Uber-style road network */}
+                <div className="absolute inset-0 opacity-60 pointer-events-none" style={{
+                  background: `
+                    /* Main arteries - thicker, more prominent */
+                    linear-gradient(90deg, ${theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'} 2px, transparent 2px),
+                    linear-gradient(0deg, ${theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'} 2px, transparent 2px),
+                    /* Secondary roads */
+                    linear-gradient(45deg, transparent 48%, ${theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'} 48%, transparent 52%),
+                    linear-gradient(135deg, transparent 48%, ${theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'} 48%, transparent 52%),
+                    /* Minor roads */
+                    linear-gradient(90deg, transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'} 49%, transparent 51%),
+                    linear-gradient(0deg, transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'} 49%, transparent 51%)
+                  `,
+                  backgroundSize: `${120 * mapZoom}px ${120 * mapZoom}px, ${80 * mapZoom}px ${80 * mapZoom}px, ${60 * mapZoom}px ${60 * mapZoom}px`,
+                  backgroundPosition: '0 0, 40px 40px, 20px 20px',
+                  transform: location ? `translate(${(location.longitude * 8000) % 120}px, ${(location.latitude * 8000) % 120}px)` : 'none'
+                }} />
+                
+                {/* Uber-style building blocks */}
+                <div className="absolute inset-0 opacity-40 pointer-events-none" style={{
+                  background: `
+                    /* Building clusters */
+                    radial-gradient(circle at 25% 30%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} 0.5%, transparent 1.5%),
+                    radial-gradient(circle at 75% 25%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} 0.8%, transparent 1.2%),
+                    radial-gradient(circle at 45% 60%, ${theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'} 1%, transparent 2%),
+                    radial-gradient(circle at 65% 45%, ${theme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'} 0.7%, transparent 1.7%),
+                    radial-gradient(circle at 85% 70%, ${theme === 'dark' ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'} 0.6%, transparent 1.4%)
+                  `,
+                  backgroundSize: `${200 * mapZoom}px ${200 * mapZoom}px`,
+                  backgroundPosition: '0 0, 100px 100px',
+                  transform: location ? `translate(${(location.longitude * 4000) % 200}px, ${(location.latitude * 4000) % 200}px)` : 'none'
+                }} />
+                
+                {/* Uber-style parks and green spaces */}
+                <div className="absolute inset-0 opacity-30 pointer-events-none" style={{
+                  background: `
+                    radial-gradient(ellipse at 20% 40%, ${theme === 'dark' ? 'rgba(76,175,80,0.2)' : 'rgba(134,239,172,0.3)'} 0%, transparent 40%),
+                    radial-gradient(ellipse at 70% 65%, ${theme === 'dark' ? 'rgba(76,175,80,0.15)' : 'rgba(134,239,172,0.25)'} 0%, transparent 35%),
+                    radial-gradient(ellipse at 40% 80%, ${theme === 'dark' ? 'rgba(76,175,80,0.18)' : 'rgba(134,239,172,0.28)'} 0%, transparent 30%)
+                  `,
+                  backgroundSize: `${300 * mapZoom}px ${300 * mapZoom}px`,
+                  backgroundPosition: '0 0, 150px 150px',
+                  transform: location ? `translate(${(location.longitude * 2000) % 300}px, ${(location.latitude * 2000) % 300}px)` : 'none'
+                }} />
+                
+                {/* Uber-style zoom controls */}
                 <div className="absolute top-24 right-4 z-40 flex flex-col gap-2">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMapZoom(z => Math.min(1.8, z + 0.2));
+                      setMapZoom(z => Math.min(2.0, z + 0.2));
                     }}
-                    className="w-8 h-8 rounded-full bg-black/70 text-white text-lg font-black flex items-center justify-center border border-white/20 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md text-black text-lg font-bold flex items-center justify-center shadow-lg border border-gray-200 active:scale-95 transition-all"
                   >
                     +
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMapZoom(z => Math.max(0.6, z - 0.2));
+                      setMapZoom(z => Math.max(0.5, z - 0.2));
                     }}
-                    className="w-8 h-8 rounded-full bg-black/70 text-white text-lg font-black flex items-center justify-center border border-white/20 active:scale-95"
+                    className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md text-black text-lg font-bold flex items-center justify-center shadow-lg border border-gray-200 active:scale-95 transition-all"
                   >
                     –
                   </button>
                 </div>
-                {/* City texture (subtle block shading) */}
-                <div className="absolute inset-0 opacity-50" style={{ 
-                  backgroundImage: `
-                    linear-gradient(45deg, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'}),
-                    linear-gradient(45deg, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'})
-                  `,
-                  backgroundSize: `${120 * mapZoom}px ${120 * mapZoom}px, ${120 * mapZoom}px ${120 * mapZoom}px`,
-                  backgroundPosition: '0 0, 60px 60px',
-                  transform: location ? `translate(${(location.longitude * 4500) % 120}px, ${(location.latitude * 4500) % 120}px)` : 'none'
-                }} />
                 
-                {/* Major roads */}
-                <div className="absolute inset-0 opacity-95 pointer-events-none" style={{ 
-                  backgroundImage: `
-                    linear-gradient(90deg, transparent 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 55%, transparent 55%),
-                    linear-gradient(transparent 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 55%, transparent 55%)
-                  `,
-                  backgroundSize: `${260 * mapZoom}px ${260 * mapZoom}px`,
-                  transform: location ? `translate(${(location.longitude * 7200) % 260}px, ${(location.latitude * 7200) % 260}px)` : 'none'
-                }} />
-                
-                {/* Minor roads */}
-                <div className="absolute inset-0 opacity-90 pointer-events-none" style={{ 
-                  backgroundImage: `
-                    linear-gradient(90deg, transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 51%, transparent 51%),
-                    linear-gradient(transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 51%, transparent 51%)
-                  `,
-                  backgroundSize: `${64 * mapZoom}px ${64 * mapZoom}px`,
-                  transform: location ? `translate(${(location.longitude * 5800) % 64}px, ${(location.latitude * 5800) % 64}px)` : 'none'
-                }} />
-                
-                {/* Water and parks */}
-                <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ 
-                  backgroundImage: `
-                    radial-gradient(circle at 20% 25%, ${theme === 'dark' ? 'rgba(80,122,160,0.16)' : 'rgba(96,165,250,0.14)'} 0%, transparent 36%),
-                    radial-gradient(circle at 80% 75%, ${theme === 'dark' ? 'rgba(58,113,80,0.2)' : 'rgba(74,222,128,0.14)'} 0%, transparent 34%)
-                  `,
-                  backgroundSize: `${520 * mapZoom}px ${520 * mapZoom}px, ${460 * mapZoom}px ${460 * mapZoom}px`,
-                  transform: location ? `translate(${(location.longitude * 2200) % 520}px, ${(location.latitude * 2200) % 520}px)` : 'none'
-                }} />
+                {/* Surge Areas */}
+                {surgeAreas.map((area, index) => (
+                  <div
+                    key={index}
+                    className="absolute rounded-full opacity-30 animate-pulse pointer-events-none"
+                    style={{
+                      background: `radial-gradient(circle, ${area.multiplier > 1.5 ? 'rgba(239,68,68,0.4)' : 'rgba(251,146,60,0.4)'} 0%, transparent 70%)`,
+                      width: `${area.radius * 100000 * mapZoom}px`,
+                      height: `${area.radius * 100000 * mapZoom}px`,
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(${(area.lng - location.longitude) * 5000 * mapZoom - (area.radius * 50000 * mapZoom)}px, ${(area.lat - location.latitude) * 5000 * mapZoom - (area.radius * 50000 * mapZoom)}px)`
+                    }}
+                  />
+                ))}
 
                 {/* Hotspots (Busy Areas) */}
                 {location && hotspots.map((spot, i) => {
@@ -1990,26 +2627,19 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setUser(u => ({ ...u, isOnline: false, faceVerified: false }));
-                          setIsBottomMenuOpen(false);
-                        }} 
-                        className="bg-red-600 text-white px-6 py-2 rounded-full font-black text-sm active:scale-95 transition-transform"
-                      >
-                        OFFLINE
-                      </button>
                     </motion.div>
                   ) : (
-                    <div className="flex justify-center">
-                      <motion.button
-                        initial={{ y: 100 }}
-                        animate={{ y: 0 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setIsBottomMenuOpen(true)}
-                        className="bg-black text-white px-8 py-4 rounded-full font-black text-lg shadow-2xl flex items-center gap-3 border border-white/10"
-                      >
-                        <ChevronUp size={24} className="animate-bounce" />
-                        <span>OPEN MENU</span>
-                      </motion.button>
-                    </div>
+                    /* Offline - Full menu */
+                    <motion.div 
+                      initial={{ y: 100 }}
+                      animate={{ y: 0 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setIsBottomMenuOpen(true)}
+                      className="bg-black text-white px-8 py-4 rounded-full font-black text-lg shadow-2xl flex items-center gap-3 border border-white/10"
+                    >
+                      <Menu size={24} />
+                      <span>Go Online</span>
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -2020,21 +2650,6 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setIsBottomMenuOpen(false)}
-                      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                    />
-                    <motion.div 
-                      initial={{ y: '100%' }}
-                      animate={{ y: 0 }}
-                      exit={{ y: '100%' }}
-                      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                      className={`absolute bottom-0 left-0 right-0 rounded-t-[40px] shadow-[0_-20px_60px_rgba(0,0,0,0.5)] flex flex-col max-h-[70vh] overflow-hidden ${theme === 'dark' ? 'bg-[#1a1a1a] text-white' : 'bg-white text-black'}`}
-                    >
-                      <div className="flex flex-col items-center pt-4 pb-2">
-                        <div className={`w-12 h-1.5 rounded-full mb-4 ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'}`} />
-                      </div>
-                      
                       <div className="overflow-y-auto px-6 pb-12 custom-scrollbar flex-1">
                         {!user.isOnline ? (
                           <>
@@ -2141,7 +2756,7 @@ export default function App() {
 
                         {/* Common scrollable items */}
                         <div className="space-y-3">
-                          <div className={`p-4 rounded-2xl flex items-center gap-4 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
+                          <div className="p-4 rounded-2xl flex items-center gap-4 border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
                             <div className="p-2 bg-blue-600 text-white rounded-lg"><ShieldCheck size={20} /></div>
                             <div>
                               <p className="text-sm font-black">Safety Toolkit</p>
