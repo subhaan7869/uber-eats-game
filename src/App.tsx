@@ -59,6 +59,17 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier } from './types';
 
+// Optional cloud profile sync endpoint (configure in env if you want real cloud save)
+const CLOUD_PROFILE_URL =
+  (import.meta as any)?.env?.VITE_CLOUD_PROFILE_URL ||
+  ((import.meta as any)?.env?.APP_URL
+    ? `${(import.meta as any).env.APP_URL.replace(/\/$/, '')}/api/profile`
+    : null);
+
+// Optional cloud endpoint to "send" the email code (demo-style).
+// If unset, we will simulate sending by showing the code in the UI/notification.
+const CLOUD_SEND_EMAIL_CODE_URL = (import.meta as any)?.env?.VITE_CLOUD_SEND_EMAIL_CODE_URL || null;
+
 // Mock data for nearby restaurants (UK names)
 const MOCK_RESTAURANTS = [
   { name: "Greggs", offset: { lat: 0.002, lng: 0.002 } },
@@ -94,12 +105,43 @@ export default function App() {
   });
   const [earningsTab, setEarningsTab] = useState<'today' | 'weekly' | 'recent'>('today');
   
+  // --- Cloud profile helpers ---
+  const loadUserProfileFromCloud = async (): Promise<Partial<UserProfile> | null> => {
+    if (!CLOUD_PROFILE_URL) return null;
+    try {
+      const res = await fetch(CLOUD_PROFILE_URL, { credentials: 'include' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data as Partial<UserProfile>;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveUserProfileToCloud = async (profile: UserProfile) => {
+    if (!CLOUD_PROFILE_URL) return;
+    try {
+      await fetch(CLOUD_PROFILE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(profile),
+      });
+    } catch {
+      // Ignore cloud errors; local save still works
+    }
+  };
+
   // User Profile State
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('uber_eats_user');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...parsed, isOnline: false }; // Always start offline
+      return {
+        ...parsed,
+        isOnline: false, // Always start offline
+        email: parsed.email || (parsed.name ? `${String(parsed.name).toLowerCase().replace(/\s+/g, '.')}@example.com` : 'driver@example.com'),
+      };
     }
     return {
       name: "Hassen Nabeel",
@@ -110,23 +152,76 @@ export default function App() {
       isOnline: false,
       documentsUploaded: false,
       faceVerified: false,
+      email: "driver@example.com",
     };
   });
 
-  // Persist user profile
+  // Persist user profile (local + optional cloud)
   useEffect(() => {
-    localStorage.setItem('uber_eats_user', JSON.stringify({
+    const toPersist = {
       ...user,
-      isOnline: false // Don't persist online status
-    }));
+      isOnline: false, // Don't persist online status
+    };
+    localStorage.setItem('uber_eats_user', JSON.stringify(toPersist));
+    // Fire-and-forget cloud save
+    void saveUserProfileToCloud(toPersist);
   }, [user]);
 
-  // Skip onboarding if already done
+  // On first load, try to hydrate from cloud profile
   useEffect(() => {
-    if (user.documentsUploaded && user.faceVerified && currentScreen === 'onboarding') {
-      setCurrentScreen('home');
-    }
+    let isMounted = true;
+    (async () => {
+      const cloudProfile = await loadUserProfileFromCloud();
+      if (cloudProfile && isMounted) {
+        setUser(prev => ({
+          ...prev,
+          ...cloudProfile,
+          email: (cloudProfile as any).email || prev.email,
+          isOnline: false,
+        }));
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // Device id for "new phone" detection (stored locally per device)
+  const [deviceId] = useState(() => {
+    const key = 'uber_device_id';
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    // crypto.randomUUID is widely supported; fallback for older browsers
+    const created =
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto && (crypto as any).randomUUID
+        ? (crypto as any).randomUUID()
+        : Math.random().toString(36).slice(2) + Date.now().toString(36));
+    localStorage.setItem(key, created);
+    return created;
+  });
+
+  const isEmailVerifiedForThisDevice = Boolean(
+    user.email &&
+      user.emailVerifiedDeviceId &&
+      user.emailVerifiedDeviceId === deviceId
+  );
+
+  const emailVerificationRequired = Boolean(
+    user.documentsUploaded &&
+      user.faceVerified &&
+      user.email &&
+      !isEmailVerifiedForThisDevice
+  );
+
+  // Skip onboarding if already done (and route to email verification if needed)
+  useEffect(() => {
+    if (currentScreen !== 'onboarding') return;
+    if (!user.documentsUploaded || !user.faceVerified) return;
+
+    if (emailVerificationRequired) setCurrentScreen('email_verification');
+    else setCurrentScreen('home');
+  }, [currentScreen, user.documentsUploaded, user.faceVerified, emailVerificationRequired]);
+
 
   // Location & Orders
   const [location, setLocation] = useState<Location | null>({ latitude: 51.5074, longitude: -0.1278 }); // Default to London
@@ -158,6 +253,32 @@ export default function App() {
     localStorage.setItem('uber_bank_balance', bankBalance.toString());
   }, [bankBalance]);
 
+  // Auto cash out any remaining earnings once per day (at or after "midnight")
+  useEffect(() => {
+    const AUTO_KEY = 'uber_last_auto_cash_date';
+
+    const performAutoCashOutIfNeeded = () => {
+      if (earnings <= 0) return;
+
+      const today = new Date().toDateString();
+      const last = localStorage.getItem(AUTO_KEY);
+      if (last === today) return;
+
+      // Treat "now" as after midnight for auto cash; move to wallet
+      setBankBalance(prev => prev + earnings);
+      setEarnings(0);
+      localStorage.setItem(AUTO_KEY, today);
+      sendNotification("Daily Cash Out", "Your remaining balance has been moved to your wallet.");
+    };
+
+    // Check immediately on load (handles app being closed overnight)
+    performAutoCashOutIfNeeded();
+
+    // Then check periodically while app is open
+    const interval = setInterval(performAutoCashOutIfNeeded, 60_000);
+    return () => clearInterval(interval);
+  }, [earnings]);
+
   useEffect(() => {
     localStorage.setItem('uber_purchased_items', JSON.stringify(purchasedItems));
   }, [purchasedItems]);
@@ -173,10 +294,20 @@ export default function App() {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [customerTimers, setCustomerTimers] = useState<Record<string, number>>({});
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+
+  // --- Email verification (new device sign-ins) ---
+  const [emailAddressInput, setEmailAddressInput] = useState<string>(user.email);
+  const [emailCodeInput, setEmailCodeInput] = useState<string>('');
+  const [emailSendCooldownUntil, setEmailSendCooldownUntil] = useState<number | null>(null);
+  const [pendingEmailCode, setPendingEmailCode] = useState<string | null>(null);
+  const [pendingEmailCodeExpiresAt, setPendingEmailCodeExpiresAt] = useState<number | null>(null);
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
   
   const [isBottomMenuOpen, setIsBottomMenuOpen] = useState(false);
+  const [mapZoom, setMapZoom] = useState(1.0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerifyingToOnline, setIsVerifyingToOnline] = useState(false);
+  const [verifyTimeoutUntil, setVerifyTimeoutUntil] = useState<number | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<{ latitude: number, longitude: number, intensity: number, size: number }[]>([]);
 
@@ -226,13 +357,35 @@ export default function App() {
         setOrderExpiryTimer(prev => prev - 1);
       }, 1000);
     } else if (orderExpiryTimer === 0) {
-      handleDeclineOrder();
+      // If you ignored the request, force a quick face/pic verification.
+      setPendingOrder(null);
+      setOrderExpiryTimer(10);
+      setIsVerifyingToOnline(true);
+      setCurrentScreen('face_verification');
+      // Give you a short window to complete verification before going offline
+      setVerifyTimeoutUntil(Date.now() + 60_000); // 1 minute
     }
 
     return () => {
       if (expiryInterval.current) clearInterval(expiryInterval.current);
     };
   }, [pendingOrder, orderExpiryTimer]);
+
+  // If you ignore the follow-up verification too, go offline automatically
+  useEffect(() => {
+    if (!verifyTimeoutUntil) return;
+    const id = setInterval(() => {
+      if (verifyTimeoutUntil && Date.now() >= verifyTimeoutUntil) {
+        setVerifyTimeoutUntil(null);
+        setIsVerifying(false);
+        setIsVerifyingToOnline(false);
+        setCurrentScreen('home');
+        setUser(u => ({ ...u, isOnline: false, faceVerified: false }));
+        sendNotification("Went Offline", "You were set offline after not responding to verification.");
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [verifyTimeoutUntil]);
 
   const [isBackgrounded, setIsBackgrounded] = useState(false);
 
@@ -317,19 +470,84 @@ export default function App() {
     };
   }, []);
 
-  // Notification API setup
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
   const sendNotification = (title: string, body: string) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, { body, icon: "https://picsum.photos/seed/uber/100/100" });
-    }
-    setNotifications(prev => [body, ...prev]);
+    // In-app only: store message for Inbox/alerts, no OS notifications
+    setNotifications(prev => [`${title}: ${body}`, ...prev]);
   };
+
+  const generateEmailVerificationCode = () => {
+    // 6-digit numeric code
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const sendEmailVerificationCode = async (email: string) => {
+    if (!email) return;
+
+    const senderEmail = 'uberclone@game.com';
+    const now = Date.now();
+    if (emailSendCooldownUntil && now < emailSendCooldownUntil) return;
+
+    setIsSendingEmailCode(true);
+    const code = generateEmailVerificationCode();
+    const expiresAt = now + 10 * 60_000; // 10 minutes
+
+    // Local fallback: keep code in memory (demo-style)
+    setPendingEmailCode(code);
+    setPendingEmailCodeExpiresAt(expiresAt);
+    setEmailCodeInput('');
+    setEmailSendCooldownUntil(now + 30_000); // 30s resend cooldown
+
+    try {
+      if (CLOUD_SEND_EMAIL_CODE_URL) {
+        // Demo integration: your backend can send a real email to the user
+        await fetch(CLOUD_SEND_EMAIL_CODE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code, deviceId }),
+        });
+      }
+    } catch {
+      // Ignore; we'll still show the code in UI/notification for this simulation
+    } finally {
+      setIsSendingEmailCode(false);
+      sendNotification(
+        "Email Verification Code Sent",
+        `From ${senderEmail}. Demo code: ${code}`
+      );
+    }
+  };
+
+  // When we land on the email verification screen, ensure we have an active code
+  useEffect(() => {
+    if (emailVerificationRequired && currentScreen !== 'email_verification') {
+      setCurrentScreen('email_verification');
+    }
+    if (!emailVerificationRequired && currentScreen === 'email_verification') {
+      setCurrentScreen('home');
+    }
+  }, [emailVerificationRequired, currentScreen]);
+
+  // Keep the email input synced with the account when entering the screen
+  useEffect(() => {
+    if (currentScreen === 'email_verification') {
+      setEmailAddressInput(user.email);
+    }
+  }, [currentScreen, user.email]);
+
+  useEffect(() => {
+    if (!emailVerificationRequired) return;
+    if (currentScreen !== 'email_verification') return;
+    if (pendingEmailCode && pendingEmailCodeExpiresAt && Date.now() < pendingEmailCodeExpiresAt) return;
+    if (!emailAddressInput) return;
+
+    void sendEmailVerificationCode(emailAddressInput);
+  }, [
+    emailVerificationRequired,
+    currentScreen,
+    pendingEmailCode,
+    pendingEmailCodeExpiresAt,
+    emailAddressInput,
+  ]);
 
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
@@ -348,7 +566,40 @@ export default function App() {
 
   const allDocsUploaded = uploadedDocs.length === 3;
 
-  // Improved Order Matching Algorithm
+  // Basic "normal" order generator (less smart, more random)
+  const generateNormalOrder = () => {
+    if (!location) return null;
+
+    const randomRest = MOCK_RESTAURANTS[Math.floor(Math.random() * MOCK_RESTAURANTS.length)];
+    const customerName = MOCK_CUSTOMERS[Math.floor(Math.random() * MOCK_CUSTOMERS.length)];
+
+    const restLat = location.latitude + randomRest.offset.lat;
+    const restLng = location.longitude + randomRest.offset.lng;
+    const custLat = restLat + (Math.random() - 0.5) * 0.02;
+    const custLng = restLng + (Math.random() - 0.5) * 0.02;
+
+    const distToRest = Math.sqrt(Math.pow(restLat - location.latitude, 2) + Math.pow(restLng - location.longitude, 2)) * MILES_PER_DEGREE;
+    const tripDist = Math.sqrt(Math.pow(custLat - restLat, 2) + Math.pow(custLng - restLng, 2)) * MILES_PER_DEGREE;
+    const pay = 3.0 + (tripDist * 1.2) + (Math.random() * 1.5);
+
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      restaurantName: randomRest.name,
+      customerName,
+      restaurantLocation: { latitude: restLat, longitude: restLng },
+      customerLocation: { latitude: custLat, longitude: custLng },
+      estimatedPay: pay,
+      estimatedDistance: tripDist,
+      estimatedTime: Math.floor(tripDist * 5 + 4),
+      status: 'pending' as const,
+      items: ["Meal Deal", "Soft Drink"],
+      distToRest,
+      pin: Math.floor(1000 + Math.random() * 9000).toString(),
+      matchingType: 'normal' as const,
+    };
+  };
+
+  // Improved Order Matching Algorithm (smart)
   const generateSmartOrder = () => {
     if (!location) return null;
 
@@ -378,7 +629,8 @@ export default function App() {
         status: 'pending' as const,
         items: ["Meal Deal", "Extra Fries", "Coke Zero"],
         distToRest,
-        pin: Math.floor(1000 + Math.random() * 9000).toString()
+        pin: Math.floor(1000 + Math.random() * 9000).toString(),
+        matchingType: 'smart' as const,
       };
     });
 
@@ -426,21 +678,48 @@ export default function App() {
     return best;
   };
 
+  // Simple "busy" score based on hotspots + time of day
+  const getBusyScore = () => {
+    let score = 0;
+    if (hotspots.length > 0) {
+      const avgIntensity =
+        hotspots.reduce((sum, h) => sum + h.intensity, 0) / hotspots.length;
+      score += avgIntensity * 2; // up to ~2
+    }
+    const hour = new Date().getHours();
+    if ((hour >= 11 && hour <= 14) || (hour >= 17 && hour <= 21)) {
+      // lunch + dinner peaks
+      score += 1.5;
+    }
+    return Math.min(score, 3); // cap
+  };
+
   // Simulate incoming orders when online
   useEffect(() => {
     if (user.isOnline && activeOrders.length < 3 && !pendingOrder) {
+      const busy = getBusyScore();
+      // Base delay between orders (ms)
+      const minBase = 8000;
+      const maxBase = 22000;
+      // Busy -> closer to minBase, quiet -> closer to maxBase
+      const factor = 1 - busy / 3; // busy=3 -> 0, quiet=0 -> 1
+      const baseDelay = minBase + (maxBase - minBase) * factor;
+      const jitter = 0.4 + Math.random() * 0.6; // 0.4x–1.0x variation
+
       const timer = setTimeout(() => {
-        const newOrder = generateSmartOrder();
+        // Randomly decide between smart matching and normal matching
+        const useSmart = Math.random() < 0.6; // ~60% smart, 40% normal
+        const newOrder = useSmart ? generateSmartOrder() : generateNormalOrder();
         if (newOrder) {
           setPendingOrder(newOrder);
           setOrderExpiryTimer(10);
           sendNotification("High Priority Trip", `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName}`);
           playUberSound('order');
         }
-      }, 8000 + Math.random() * 12000);
+      }, baseDelay * jitter);
       return () => clearTimeout(timer);
     }
-  }, [user.isOnline, activeOrders, pendingOrder, location]);
+  }, [user.isOnline, activeOrders, pendingOrder, location, hotspots]);
 
   const handleAcceptOrder = () => {
     if (pendingOrder) {
@@ -504,7 +783,48 @@ export default function App() {
     }
   };
 
+  const [emailVerifyRequestedForOnline, setEmailVerifyRequestedForOnline] = useState(false);
+
+  const handleConfirmEmailCode = () => {
+    if (!pendingEmailCode || !pendingEmailCodeExpiresAt) return;
+    const now = Date.now();
+    if (now > pendingEmailCodeExpiresAt) {
+      sendNotification("Code Expired", "Request a new verification code.");
+      return;
+    }
+
+    if (emailCodeInput.trim() !== pendingEmailCode) {
+      sendNotification("Incorrect Code", "That email verification code is not correct.");
+      return;
+    }
+
+    // Mark this device as verified for the account
+    setUser(u => ({
+      ...u,
+      email: emailAddressInput || u.email,
+      emailVerifiedDeviceId: deviceId,
+      // If they requested this verification to go online, allow it immediately.
+      isOnline: emailVerifyRequestedForOnline ? true : u.isOnline,
+    }));
+
+    setEmailVerifyRequestedForOnline(false);
+    setPendingEmailCode(null);
+    setPendingEmailCodeExpiresAt(null);
+    setEmailCodeInput('');
+
+    playUberSound('accept');
+    sendNotification("Email Verified", "Your email is verified for this device.");
+    setCurrentScreen('home');
+  };
+
   const [isFlashing, setIsFlashing] = useState(false);
+
+  // When going online, keep the bottom menu closed by default
+  useEffect(() => {
+    if (user.isOnline) {
+      setIsBottomMenuOpen(false);
+    }
+  }, [user.isOnline]);
 
   const playUberSound = (type: 'order' | 'accept' | 'message' | 'complete') => {
     try {
@@ -577,14 +897,16 @@ export default function App() {
 
     await new Promise(r => setTimeout(r, 2000));
     
-    // Always success for now to avoid "dont work" complaints, but keep lockout logic available
-    const isSuccess = true; 
+    // Sometimes fail to simulate "face not recognised"
+    const isSuccess = Math.random() > 0.15;
 
     if (isSuccess) {
       setUser(u => ({ 
         ...u, 
         faceVerified: true, 
-        isOnline: true, // Force online after successful verification
+        // Only go online immediately if the "email verified for this device" check passed.
+        // Otherwise, we route you into email verification.
+        isOnline: isEmailVerifiedForThisDevice,
         profilePic: capturedPic || u.profilePic
       }));
       sendNotification("Identity Verified", "Your face verification was successful.");
@@ -594,14 +916,19 @@ export default function App() {
       stopCamera();
       setIsVerifyingToOnline(false);
       setIsVerifying(false);
-      setCurrentScreen('home');
+      if (user.email && !isEmailVerifiedForThisDevice) {
+        setCurrentScreen('email_verification');
+      } else {
+        setCurrentScreen('home');
+      }
     } else {
-      setLockoutUntil(Date.now() + 60000); // 1 minute lockout
-      sendNotification("Verification Failed", "Identity could not be verified. Locked out for 1 minute.");
+      // 1-minute lockout when face isn't recognised
+      setLockoutUntil(Date.now() + 60000);
+      sendNotification("Face Not Recognised", "Try again in 1 minute.");
       stopCamera();
       setIsVerifyingToOnline(false);
       setIsVerifying(false);
-      // Stay on screen to show lockout
+      // Stay on screen to show lockout timer
     }
   };
 
@@ -1056,7 +1383,14 @@ export default function App() {
               </AnimatePresence>
 
               <div className="absolute top-8 left-6">
-                <button onClick={() => setCurrentScreen('home')} className="p-2 bg-white/10 rounded-full">
+                <button
+                  onClick={() => {
+                    setEmailVerifyRequestedForOnline(false);
+                    setEmailCodeInput('');
+                    setCurrentScreen('home');
+                  }}
+                  className="p-2 bg-white/10 rounded-full"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -1119,6 +1453,98 @@ export default function App() {
               >
                 {user.faceVerified ? 'SUCCESS' : isVerifying ? 'VERIFYING...' : (lockoutUntil && Date.now() < lockoutUntil) ? 'LOCKED' : 'VERIFY'}
               </button>
+            </motion.div>
+          )}
+
+          {currentScreen === 'email_verification' && (
+            <motion.div
+              key="email"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="h-full w-full bg-black text-white p-6 flex flex-col items-center relative"
+            >
+              <div className="absolute top-8 left-6">
+                <button onClick={() => setCurrentScreen('home')} className="p-2 bg-white/10 rounded-full">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <h1 className="text-2xl font-black mt-12 mb-2">Verify Your Email</h1>
+              <p className="text-center text-gray-400 mb-8">
+                We sent a 6-digit code to
+                <span className="text-white font-black"> {emailAddressInput || user.email}</span>
+                <div className="text-center mt-2 text-[10px] text-gray-500 font-bold">
+                  From: uberclone@game.com
+                </div>
+              </p>
+
+              <div className="w-full max-w-md bg-white/5 rounded-3xl p-6 border border-white/10">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Email Code
+                </label>
+                <input
+                  value={emailCodeInput}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                    setEmailCodeInput(v);
+                  }}
+                  inputMode="numeric"
+                  placeholder="000000"
+                  className="mt-3 w-full py-4 rounded-2xl bg-black/40 border border-white/10 text-center font-black text-xl tracking-[0.25em] outline-none"
+                />
+
+                {pendingEmailCode && (
+                  <div className="mt-3 text-center text-[10px] text-blue-300 font-bold">
+                    Demo code: {pendingEmailCode}
+                  </div>
+                )}
+
+                {pendingEmailCodeExpiresAt && Date.now() < pendingEmailCodeExpiresAt && (
+                  <div className="mt-2 text-center text-[10px] text-gray-400 font-bold">
+                    Expires in {Math.ceil((pendingEmailCodeExpiresAt - Date.now()) / 1000)}s
+                  </div>
+                )}
+
+                <button
+                  onClick={handleConfirmEmailCode}
+                  disabled={
+                    isSendingEmailCode ||
+                    !pendingEmailCode ||
+                    !pendingEmailCodeExpiresAt ||
+                    !emailCodeInput ||
+                    Date.now() > pendingEmailCodeExpiresAt
+                  }
+                  className={`w-full mt-6 py-5 rounded-2xl font-black text-xl transition-all ${
+                    pendingEmailCode && pendingEmailCodeExpiresAt && Date.now() <= pendingEmailCodeExpiresAt
+                      ? 'bg-blue-600 active:scale-95'
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  VERIFY
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEmailCodeInput('');
+                    void sendEmailVerificationCode(emailAddressInput || user.email);
+                  }}
+                  disabled={emailSendCooldownUntil ? Date.now() < emailSendCooldownUntil : false}
+                  className={`w-full mt-3 py-3 rounded-2xl font-black text-sm transition-all border ${
+                    emailSendCooldownUntil && Date.now() < emailSendCooldownUntil
+                      ? 'bg-black/40 text-gray-500 border-white/10 cursor-not-allowed'
+                      : 'bg-white text-black border-white/20 active:scale-95'
+                  }`}
+                >
+                  {emailSendCooldownUntil && Date.now() < emailSendCooldownUntil
+                    ? `RESEND (${Math.ceil((emailSendCooldownUntil - Date.now()) / 1000)}s)`
+                    : 'RESEND CODE'}
+                </button>
+              </div>
+
+              <div className="mt-6 text-center text-[10px] text-gray-500 font-bold">
+                This is a simulation. In production you’d send a real email via a backend.
+              </div>
             </motion.div>
           )}
 
@@ -1249,53 +1675,74 @@ export default function App() {
               {/* Map Simulation */}
               <div 
                 onClick={() => setSelectedMarkerId(null)}
-                className={`absolute inset-0 overflow-hidden transition-all duration-500 ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-[#eef2f6]'} ${(lockoutUntil && Date.now() < lockoutUntil) || Object.values(customerTimers).some(t => Number(t) > 0) ? 'blur-md grayscale opacity-50 pointer-events-none' : ''}`}
+                className={`absolute inset-0 overflow-hidden transition-all duration-500 ${theme === 'dark' ? 'bg-[#0d0f12]' : 'bg-[#f3f4f2]'} ${(lockoutUntil && Date.now() < lockoutUntil) || Object.values(customerTimers).some(t => Number(t) > 0) ? 'blur-md grayscale opacity-50 pointer-events-none' : ''}`}
               >
-                {/* Roads */}
-                <div className="absolute inset-0 opacity-40" style={{ 
+                {/* Zoom controls */}
+                <div className="absolute top-24 right-4 z-40 flex flex-col gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMapZoom(z => Math.min(1.8, z + 0.2));
+                    }}
+                    className="w-8 h-8 rounded-full bg-black/70 text-white text-lg font-black flex items-center justify-center border border-white/20 active:scale-95"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMapZoom(z => Math.max(0.6, z - 0.2));
+                    }}
+                    className="w-8 h-8 rounded-full bg-black/70 text-white text-lg font-black flex items-center justify-center border border-white/20 active:scale-95"
+                  >
+                    –
+                  </button>
+                </div>
+                {/* City texture (subtle block shading) */}
+                <div className="absolute inset-0 opacity-50" style={{ 
                   backgroundImage: `
-                    linear-gradient(90deg, ${theme === 'dark' ? '#333' : '#ccc'} 4px, transparent 4px),
-                    linear-gradient(${theme === 'dark' ? '#333' : '#ccc'} 4px, transparent 4px),
-                    linear-gradient(90deg, ${theme === 'dark' ? '#222' : '#bbb'} 2px, transparent 2px),
-                    linear-gradient(${theme === 'dark' ? '#222' : '#bbb'} 2px, transparent 2px)
+                    linear-gradient(45deg, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'}),
+                    linear-gradient(45deg, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'} 75%, ${theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)'})
                   `,
-                  backgroundSize: '150px 150px, 150px 150px, 30px 30px, 30px 30px',
-                  transform: location ? `translate(${(location.longitude * 10000) % 150}px, ${(location.latitude * 10000) % 150}px)` : 'none'
+                  backgroundSize: `${120 * mapZoom}px ${120 * mapZoom}px, ${120 * mapZoom}px ${120 * mapZoom}px`,
+                  backgroundPosition: '0 0, 60px 60px',
+                  transform: location ? `translate(${(location.longitude * 4500) % 120}px, ${(location.latitude * 4500) % 120}px)` : 'none'
                 }} />
                 
-                {/* Traffic Lines (Simulated) */}
-                <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ 
+                {/* Major roads */}
+                <div className="absolute inset-0 opacity-95 pointer-events-none" style={{ 
                   backgroundImage: `
-                    linear-gradient(90deg, transparent 48%, #ff4d4d 48%, #ff4d4d 52%, transparent 52%),
-                    linear-gradient(transparent 48%, #ffcc00 48%, #ffcc00 52%, transparent 52%)
+                    linear-gradient(90deg, transparent 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 55%, transparent 55%),
+                    linear-gradient(transparent 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 45%, ${theme === 'dark' ? 'rgba(240,244,247,0.22)' : 'rgba(71,85,105,0.2)'} 55%, transparent 55%)
                   `,
-                  backgroundSize: '300px 300px',
-                  transform: location ? `translate(${(location.longitude * 8000) % 300}px, ${(location.latitude * 8000) % 300}px)` : 'none'
+                  backgroundSize: `${260 * mapZoom}px ${260 * mapZoom}px`,
+                  transform: location ? `translate(${(location.longitude * 7200) % 260}px, ${(location.latitude * 7200) % 260}px)` : 'none'
                 }} />
                 
-                {/* Buildings & Blocks */}
-                <div className="absolute inset-0 opacity-25" style={{ 
+                {/* Minor roads */}
+                <div className="absolute inset-0 opacity-90 pointer-events-none" style={{ 
                   backgroundImage: `
-                    linear-gradient(45deg, ${theme === 'dark' ? '#444' : '#ddd'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? '#444' : '#ddd'} 75%, ${theme === 'dark' ? '#444' : '#ddd'}),
-                    linear-gradient(45deg, ${theme === 'dark' ? '#444' : '#ddd'} 25%, transparent 25%, transparent 75%, ${theme === 'dark' ? '#444' : '#ddd'} 75%, ${theme === 'dark' ? '#444' : '#ddd'}),
-                    radial-gradient(circle, ${theme === 'dark' ? '#333' : '#ccc'} 20%, transparent 20%)
+                    linear-gradient(90deg, transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 51%, transparent 51%),
+                    linear-gradient(transparent 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 49%, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(100,116,139,0.12)'} 51%, transparent 51%)
                   `,
-                  backgroundSize: '80px 80px, 80px 80px, 50px 50px',
-                  backgroundPosition: '0 0, 40px 40px, 15px 15px',
-                  transform: location ? `translate(${(location.longitude * 6000) % 80}px, ${(location.latitude * 6000) % 80}px)` : 'none'
+                  backgroundSize: `${64 * mapZoom}px ${64 * mapZoom}px`,
+                  transform: location ? `translate(${(location.longitude * 5800) % 64}px, ${(location.latitude * 5800) % 64}px)` : 'none'
                 }} />
                 
-                {/* Parks/Green areas */}
-                <div className="absolute inset-0 opacity-15" style={{ 
-                  backgroundImage: 'radial-gradient(circle, #2d5a27 15%, transparent 85%), radial-gradient(circle, #1e3a1a 10%, transparent 70%)',
-                  backgroundSize: '500px 500px, 400px 400px',
-                  transform: location ? `translate(${(location.longitude * 2000) % 500}px, ${(location.latitude * 2000) % 500}px)` : 'none'
+                {/* Water and parks */}
+                <div className="absolute inset-0 opacity-35 pointer-events-none" style={{ 
+                  backgroundImage: `
+                    radial-gradient(circle at 20% 25%, ${theme === 'dark' ? 'rgba(80,122,160,0.16)' : 'rgba(96,165,250,0.14)'} 0%, transparent 36%),
+                    radial-gradient(circle at 80% 75%, ${theme === 'dark' ? 'rgba(58,113,80,0.2)' : 'rgba(74,222,128,0.14)'} 0%, transparent 34%)
+                  `,
+                  backgroundSize: `${520 * mapZoom}px ${520 * mapZoom}px, ${460 * mapZoom}px ${460 * mapZoom}px`,
+                  transform: location ? `translate(${(location.longitude * 2200) % 520}px, ${(location.latitude * 2200) % 520}px)` : 'none'
                 }} />
 
                 {/* Hotspots (Busy Areas) */}
                 {location && hotspots.map((spot, i) => {
-                  const x = (spot.longitude - location.longitude) * 50000;
-                  const y = (location.latitude - spot.latitude) * 50000;
+                  const x = (spot.longitude - location.longitude) * 50000 * mapZoom;
+                  const y = (location.latitude - spot.latitude) * 50000 * mapZoom;
                   return (
                     <motion.div 
                       key={`hotspot-${i}`}
@@ -1306,8 +1753,8 @@ export default function App() {
                       transition={{ duration: 5 + i, repeat: Infinity }}
                       className="absolute rounded-full bg-orange-600 blur-[40px] pointer-events-none"
                       style={{ 
-                        width: spot.size,
-                        height: spot.size,
+                        width: spot.size * mapZoom,
+                        height: spot.size * mapZoom,
                         left: '50%', 
                         top: '50%', 
                         transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` 
@@ -1318,8 +1765,8 @@ export default function App() {
 
                 {/* Mock Restaurants (Busy Map) */}
                 {location && MOCK_RESTAURANTS.map((rest, i) => {
-                  const x = rest.offset.lng * 50000;
-                  const y = -rest.offset.lat * 50000;
+                  const x = rest.offset.lng * 50000 * mapZoom;
+                  const y = -rest.offset.lat * 50000 * mapZoom;
                   return (
                     <div 
                       key={`rest-${i}`}
@@ -1330,10 +1777,10 @@ export default function App() {
                         transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` 
                       }}
                     >
-                      <div className="w-6 h-6 bg-orange-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                        <Coffee size={12} className="text-white" />
+                      <div className={`w-6 h-6 rounded-full border shadow-lg flex items-center justify-center ${theme === 'dark' ? 'bg-white border-black/30' : 'bg-black border-white/30'}`}>
+                        <Coffee size={12} className={`${theme === 'dark' ? 'text-black' : 'text-white'}`} />
                       </div>
-                      <span className={`text-[8px] font-black mt-1 px-1 rounded bg-white/80 ${theme === 'dark' ? 'text-black' : 'text-black'}`}>
+                      <span className={`text-[8px] font-black mt-1 px-1 rounded ${theme === 'dark' ? 'bg-black/70 text-white/90' : 'bg-white/90 text-black/80'}`}>
                         {rest.name}
                       </span>
                     </div>
@@ -1341,7 +1788,7 @@ export default function App() {
                 })}
 
                 {/* Simulated Street Labels */}
-                <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
+                <div className="absolute inset-0 pointer-events-none opacity-35 overflow-hidden">
                   {[
                     { name: "High St", x: 100, y: 200 },
                     { name: "London Rd", x: 400, y: 500 },
@@ -1351,11 +1798,13 @@ export default function App() {
                   ].map((label, i) => (
                     <div 
                       key={i}
-                      className={`absolute text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${theme === 'dark' ? 'text-white/40' : 'text-black/40'}`}
-                      style={{ 
-                        left: label.x, 
+                      className={`absolute text-[10px] font-black uppercase tracking-[0.12em] whitespace-nowrap ${theme === 'dark' ? 'text-white/35' : 'text-black/35'}`}
+                      style={{
+                        left: label.x,
                         top: label.y,
-                        transform: location ? `translate(${(location.longitude * 10000) % 1000}px, ${(location.latitude * 10000) % 1000}px)` : 'none'
+                        transform: location
+                          ? `translate(${((location.longitude * 10000) % 1000) * mapZoom}px, ${((location.latitude * 10000) % 1000) * mapZoom}px)`
+                          : 'none'
                       }}
                     >
                       {label.name}
@@ -1384,8 +1833,8 @@ export default function App() {
                     {activeOrders.map(order => {
                       const isPickup = order.status === 'accepted';
                       const target = isPickup ? order.restaurantLocation : order.customerLocation;
-                      const x = (target.longitude - location.longitude) * 50000;
-                      const y = (location.latitude - target.latitude) * 50000;
+                      const x = (target.longitude - location.longitude) * 50000 * mapZoom;
+                      const y = (location.latitude - target.latitude) * 50000 * mapZoom;
                       const isSelected = selectedMarkerId === order.id;
                       
                       return (
@@ -1437,8 +1886,8 @@ export default function App() {
                     {pendingOrder && (
                       <>
                         {[pendingOrder.restaurantLocation, pendingOrder.customerLocation].map((target, i) => {
-                          const x = (target.longitude - location.longitude) * 50000;
-                          const y = (location.latitude - target.latitude) * 50000;
+                          const x = (target.longitude - location.longitude) * 50000 * mapZoom;
+                          const y = (location.latitude - target.latitude) * 50000 * mapZoom;
                           return (
                             <motion.div 
                               key={`pending-${i}`}
@@ -1498,18 +1947,45 @@ export default function App() {
                       animate={{ y: 0 }}
                       className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} rounded-full shadow-2xl border border-white/10 flex items-center justify-between px-6 py-4`}
                     >
-                      <div className="flex items-center gap-3 ml-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsBottomMenuOpen(true)}
+                        className="flex items-center gap-3 ml-2 active:scale-95 transition-transform"
+                      >
                         <motion.div 
                           animate={{ scale: [1, 1.2, 1] }}
                           transition={{ duration: 1, repeat: Infinity }}
                           className="w-2 h-2 bg-blue-500 rounded-full" 
                         />
                         <span className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-                          {new Date().getHours() >= 11 && new Date().getHours() <= 14 ? "It's lunchtime" : 
-                           new Date().getHours() >= 17 && new Date().getHours() <= 20 ? "It's dinnertime" : 
-                           "Finding trips"}
+                          {(() => {
+                            const hour = new Date().getHours();
+                            if (hour >= 11 && hour <= 14) {
+                              const lunchPhrases = [
+                                "Lunchtime rush — lots of orders",
+                                "Busy lunch hour",
+                                "Midday demand picking up"
+                              ];
+                              return lunchPhrases[Math.floor(Math.random() * lunchPhrases.length)];
+                            }
+                            if (hour >= 17 && hour <= 20) {
+                              const dinnerPhrases = [
+                                "Dinnertime — prime hours",
+                                "Evening rush in your area",
+                                "Busy dinner deliveries"
+                              ];
+                              return dinnerPhrases[Math.floor(Math.random() * dinnerPhrases.length)];
+                            }
+                            const idlePhrases = [
+                              "Finding trips",
+                              "Standing by for requests",
+                              "Waiting for the next order",
+                              "Checking nearby hotspots"
+                            ];
+                            return idlePhrases[Math.floor(Math.random() * idlePhrases.length)];
+                          })()}
                         </span>
-                      </div>
+                      </button>
 
                       <button 
                         onClick={() => {
@@ -1573,6 +2049,15 @@ export default function App() {
                                 disabled={(lockoutUntil ? Date.now() < lockoutUntil : false) || Object.values(customerTimers).some(t => Number(t) > 0)}
                                 onClick={() => {
                                   if (user.faceVerified) {
+                                    // If you're on a "new phone/device", require email verification first
+                                    if (!isEmailVerifiedForThisDevice) {
+                                      setEmailVerifyRequestedForOnline(true);
+                                      setIsBottomMenuOpen(false);
+                                      setCurrentScreen('email_verification');
+                                        void sendEmailVerificationCode(emailAddressInput || user.email);
+                                      return;
+                                    }
+
                                     setUser(u => ({ ...u, isOnline: true }));
                                     setIsBottomMenuOpen(false);
                                     playUberSound('accept');
@@ -1960,7 +2445,16 @@ export default function App() {
               </div>
               
               <div className="px-4 py-2 border-t border-gray-100 flex gap-2 overflow-x-auto no-scrollbar">
-                {["I've arrived", "I'm outside", "I'm at the door", "What's the PIN?", "Can't find you"].map(text => (
+                {[
+                  "I've arrived",
+                  "I'm outside",
+                  "I'm at the door",
+                  "What's the PIN?",
+                  "Can't find you",
+                  "Be there in 2 minutes",
+                  "Traffic is a bit slow",
+                  "Please come to the main entrance",
+                ].map(text => (
                   <button 
                     key={text}
                     onClick={() => {

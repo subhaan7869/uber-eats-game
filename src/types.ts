@@ -15,6 +15,9 @@ export interface Order {
   customerName: string;
   items: string[];
   pin?: string;
+  // Indicates how this order was assigned to you
+  // 'smart' = advanced matching, 'normal' = simple nearby trip
+  matchingType?: 'smart' | 'normal';
 }
 
 export interface ChatMessage {
@@ -25,7 +28,7 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-export type AppScreen = 'onboarding' | 'documents' | 'face_verification' | 'home' | 'earnings' | 'inbox' | 'account' | 'chat' | 'uber_pro' | 'wallet' | 'opportunities' | 'safety' | 'earnings_detail' | 'banking';
+export type AppScreen = 'onboarding' | 'documents' | 'face_verification' | 'email_verification' | 'home' | 'earnings' | 'inbox' | 'account' | 'chat' | 'uber_pro' | 'wallet' | 'opportunities' | 'safety' | 'earnings_detail' | 'banking';
 
 export type UberProTier = 'Blue' | 'Gold' | 'Platinum' | 'Diamond';
 
@@ -38,5 +41,8 @@ export interface UserProfile {
   isOnline: boolean;
   documentsUploaded: boolean;
   faceVerified: boolean;
+  // Email verification for "new device" sign-ins
+  email: string;
+  emailVerifiedDeviceId?: string;
   profilePic?: string;
 }
