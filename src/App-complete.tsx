@@ -156,6 +156,7 @@ function App() {
       
       setPendingOrder(newOrder);
       setOrderExpiryTimer(10);
+      playSound('order_request'); // Play sound when order arrives
     }, Math.random() * 10000 + 5000);
     
     return () => clearTimeout(timer);
@@ -241,6 +242,7 @@ function App() {
             actionUrl: 'home'
           };
           setOfflineNotifications(prev => [notification, ...prev]);
+          playSound(warningLevel === 'critical' ? 'error' : 'warning'); // Play warning sound
         }
       }
     }, 60000);
@@ -286,6 +288,7 @@ function App() {
           actionUrl: 'account'
         };
         setOfflineNotifications(prev => [notification, ...prev]);
+        playSound('error'); // Play error sound for document expiry
       }
     }, 60000);
     
@@ -311,6 +314,7 @@ function App() {
             actionUrl: 'home'
           };
           setOfflineNotifications(prev => [notification, ...prev]);
+          playSound('surge'); // Play surge alert sound
         }
         
         if (Math.random() < 0.1) {
@@ -326,6 +330,7 @@ function App() {
             actionable: false
           };
           setOfflineNotifications(prev => [notification, ...prev]);
+          playSound('notification'); // Play missed opportunity sound
         }
       }
     }, 30000);
@@ -364,6 +369,7 @@ function App() {
             actionUrl: 'earnings'
           };
           setOfflineNotifications(prev => [notification, ...prev]);
+          playSound('warning'); // Play warning sound for missed target
         } else {
           setFinancialPressure(prev => ({
             ...prev,
@@ -406,6 +412,100 @@ function App() {
     return () => clearInterval(timer);
   }, [pendingOrder]);
 
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+// Enhanced sound system with toggle
+  const playSound = (type: 'order_request' | 'order_accept' | 'order_complete' | 'notification' | 'error' | 'success' | 'surge' | 'warning') => {
+    if (!soundEnabled) return;
+    
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Different sound patterns for different events
+      switch (type) {
+        case 'order_request':
+          // Uber-style notification sound
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+          
+        case 'order_accept':
+          // Success sound
+          oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+          oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+          oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.4);
+          break;
+          
+        case 'notification':
+          // Gentle notification
+          oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4
+          gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+          break;
+          
+        case 'warning':
+          // Warning tone
+          oscillator.frequency.setValueAtTime(349.23, audioContext.currentTime); // F4
+          oscillator.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.1); // E4
+          gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+          
+        case 'surge':
+          // Surge alert - more urgent
+          oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.05);
+          oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
+          gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+          break;
+          
+        case 'error':
+          // Error sound
+          oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+          break;
+          
+        case 'success':
+          // Success chime
+          oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+          oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+          break;
+          
+        default:
+          break;
+      }
+    } catch (error) {
+      console.log('Audio system not available');
+    }
+  };
+
   const acceptOrder = () => {
     if (pendingOrder) {
       setActiveOrders([...activeOrders, { ...pendingOrder, status: 'accepted' }]);
@@ -413,41 +513,52 @@ function App() {
       setEarnings(prev => prev + pay);
       setFinancialPressure(prev => ({ ...prev, currentWeekProgress: prev.currentWeekProgress + pay }));
       setPendingOrder(null);
+      playSound('order_accept');
     }
   };
 
   const rejectOrder = () => {
     setPendingOrder(null);
+    playSound('error');
   };
 
   const toggleOnline = () => {
     if (!user.documentsUploaded || !user.faceVerified) {
+      playSound('error');
       alert('Please complete documents and face verification first!');
       return;
     }
     
     const hasExpiredDocs = documentStatuses.some(doc => doc.status === 'expired');
     if (hasExpiredDocs) {
+      playSound('error');
       alert('Cannot go online with expired documents. Please renew them first.');
       return;
     }
     
     setUser(prev => ({ ...prev, isOnline: !prev.isOnline }));
+    playSound(user.isOnline ? 'error' : 'success');
   };
 
   const uploadDoc = (docName: string) => {
     setUploadedDocs([...uploadedDocs, docName]);
+    playSound('success'); // Play success sound for document upload
     if (uploadedDocs.length + 1 >= 3) {
-      setTimeout(() => setUser(prev => ({ ...prev, documentsUploaded: true })), 1000);
+      setTimeout(() => {
+        setUser(prev => ({ ...prev, documentsUploaded: true }));
+        playSound('success'); // Play success sound for all documents completed
+      }, 1000);
     }
   };
 
   const verifyFace = () => {
     setIsVerifying(true);
+    playSound('notification'); // Play notification sound for verification start
     setTimeout(() => {
       setIsVerifying(false);
       setUser(prev => ({ ...prev, faceVerified: true }));
       setCurrentScreen('home');
+      playSound('success'); // Play success sound for verification complete
     }, 3000);
   };
 
@@ -1472,8 +1583,18 @@ function App() {
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Sound Effects</span>
-                  <input type="checkbox" defaultChecked style={{ width: '20px', height: '20px' }} />
+                  <span>🔊 Sound Effects</span>
+                  <input 
+                    type="checkbox" 
+                    checked={soundEnabled}
+                    onChange={(e) => {
+                      setSoundEnabled(e.target.checked);
+                      if (e.target.checked) {
+                        playSound('success'); // Play test sound when enabling
+                      }
+                    }}
+                    style={{ width: '20px', height: '20px' }} 
+                  />
                 </label>
               </div>
               
