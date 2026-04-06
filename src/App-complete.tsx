@@ -768,39 +768,52 @@ function App() {
               height: '80px', 
               backgroundColor: '#fff', 
               borderRadius: '16px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
               margin: '0 auto 20px',
-              fontSize: '32px',
-              fontWeight: 'bold',
-              color: '#000'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 25px rgba(255,255,255,0.2)'
             }}>
-              U
+              <span style={{ color: '#000', fontSize: '32px', fontWeight: '900' }}>U</span>
             </div>
-            <h1 style={{ fontSize: '32px', marginBottom: '10px', fontWeight: 'bold' }}>
+            <h1 style={{ 
+              fontSize: '32px', 
+              fontWeight: '900', 
+              marginBottom: '16px',
+              background: 'linear-gradient(135deg, #fff 0%, #ccc 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
               Drive when you want,<br/>earn what you need
             </h1>
-            <p style={{ fontSize: '14px', color: '#ccc', marginBottom: '30px' }}>
-              By continuing, you agree to our Terms of Service
+            <p style={{ color: '#ccc', marginBottom: '32px', fontSize: '14px' }}>
+              Complete onboarding to start your delivery journey
             </p>
+            <div style={{ marginBottom: '20px', fontSize: '12px', color: '#666' }}>
+              🎨 ENHANCED UI VERSION - If you see this styling, the enhanced UI is working!
+            </div>
             <button 
+              onClick={() => setCurrentScreen('documents')}
               style={{
-                padding: '18px',
-                fontSize: '20px',
-                backgroundColor: '#fff',
+                padding: '18px 32px',
+                background: 'linear-gradient(135deg, #fff 0%, #f0f0f0 100%)',
                 color: '#000',
                 border: 'none',
                 borderRadius: '12px',
                 cursor: 'pointer',
-                fontWeight: 'bold',
+                fontWeight: '800',
+                fontSize: '16px',
                 width: '100%',
-                letterSpacing: '1px'
+                boxShadow: '0 4px 15px rgba(255,255,255,0.3)',
+                transition: 'all 0.2s ease'
               }}
-              onClick={() => setCurrentScreen('documents')}
+              className="button-press"
             >
               CONTINUE
             </button>
+            <p style={{ textAlign: 'center', color: '#666', fontSize: '12px', marginTop: '16px' }}>
+              By continuing, you agree to our Terms of Service
+            </p>
           </div>
         );
         
@@ -2217,36 +2230,6 @@ function App() {
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Debug indicator */}
-      <div style={{
-        position: 'absolute',
-        top: '5px',
-        right: '5px',
-        backgroundColor: 'rgba(255,0,0,0.8)',
-        color: '#fff',
-        padding: '2px 6px',
-        borderRadius: '4px',
-        fontSize: '10px',
-        zIndex: 9999
-      }}>
-        ENHANCED UI
-      </div>
-      
-      {/* Notification debug indicator */}
-      <div style={{
-        position: 'absolute',
-        top: '5px',
-        left: '5px',
-        backgroundColor: 'rgba(0,255,0,0.8)',
-        color: '#fff',
-        padding: '2px 6px',
-        borderRadius: '4px',
-        fontSize: '10px',
-        zIndex: 9999
-      }}>
-        🔔 {offlineNotifications.length} NOTIFICATIONS
-      </div>
-      
       {/* Background Pattern */}
       <div style={{
         position: 'absolute',
