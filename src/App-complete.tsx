@@ -2115,6 +2115,21 @@ function App() {
       position: 'relative',
       overflow: 'hidden'
     }}>
+      {/* Debug indicator */}
+      <div style={{
+        position: 'absolute',
+        top: '5px',
+        right: '5px',
+        backgroundColor: 'rgba(255,0,0,0.8)',
+        color: '#fff',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        fontSize: '10px',
+        zIndex: 9999
+      }}>
+        ENHANCED UI
+      </div>
+      
       {/* Background Pattern */}
       <div style={{
         position: 'absolute',
