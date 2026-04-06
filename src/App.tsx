@@ -1389,8 +1389,8 @@ export default function App() {
 
   const [isFlashing, setIsFlashing] = useState(false);
 
-  // When going online, keep the bottom menu closed by default
-  useEffect(async () => {
+  // Verification function for going online
+  const verifyToGoOnline = async () => {
     setIsVerifying(true);
     playUberSound('message');
     
@@ -1445,6 +1445,13 @@ export default function App() {
       // Stay on screen to show lockout timer
     }
   };
+
+  // When going online, keep the bottom menu closed by default
+  useEffect(() => {
+    if (isVerifyingToOnline) {
+      verifyToGoOnline();
+    }
+  }, [isVerifyingToOnline]);
 
   // UI Components
   const EarningsDetail = () => {
