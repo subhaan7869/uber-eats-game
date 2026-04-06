@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "server": "cd server && npm install && npm start",
+    "server:dev": "cd server && npm install && npm run dev",
+    "fullstack": "npm run server & npm run dev"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

@@ -54,13 +54,34 @@ import {
   ShoppingBag,
   Truck,
   Bike,
-  Car
+  Car,
+  Calendar,
+  Users,
+  Fuel,
+  Activity,
+  Award,
+  QrCode,
+  Map,
+  Thermometer,
+  Wind,
+  Cloud,
+  Gauge,
+  Route,
+  Navigation2,
+  Timer,
+  BarChart3,
+  Target,
+  ZapOff,
+  PhoneCall,
+  AlertTriangle,
+  Flame,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Shared sleep function - outside any component
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier, DriverRating, Quest } from './types';
+import { Location, Order, AppScreen, ChatMessage, UserProfile, UberProTier, DriverRating, Quest, Vehicle, Referral, ScheduledBlock, FuelRecord, Promotion, EmergencyContact, Achievement, AISuggestion, CommunityPost, TrafficIncident, DocumentStatus, FinancialPressure, RankDecay, OfflineNotification, UserCredentials, AuthSession } from './types';
 import { cloudStorage, CloudProfile } from './cloudStorage';
 
 // Optional cloud profile sync endpoint (configure in env if you want real cloud save)
@@ -547,6 +568,493 @@ export default function App() {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<{ latitude: number, longitude: number, intensity: number, size: number }[]>([]);
 
+  // New feature states
+  const [vehicles, setVehicles] = useState<Vehicle[]>([
+    {
+      id: '1',
+      make: 'Toyota',
+      model: 'Camry',
+      year: 2020,
+      licensePlate: 'ABC-1234',
+      type: 'car',
+      isPrimary: true,
+      insuranceExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000),
+      registrationExpiry: Date.now() + (180 * 24 * 60 * 60 * 1000)
+    }
+  ]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [scheduledBlocks, setScheduledBlocks] = useState<ScheduledBlock[]>([]);
+  const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([
+    {
+      id: '1',
+      title: 'Weekend Bonus',
+      description: 'Complete 15 deliveries this weekend for an extra £50',
+      type: 'bonus',
+      value: 50,
+      requirements: '15 deliveries between Friday 6PM - Sunday 11PM',
+      startDate: Date.now(),
+      endDate: Date.now() + (3 * 24 * 60 * 60 * 1000),
+      status: 'active',
+      progress: 0,
+      maxProgress: 15
+    }
+  ]);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([
+    {
+      id: '1',
+      name: 'Emergency Services',
+      phone: '999',
+      relationship: 'Emergency',
+      isPrimary: true
+    }
+  ]);
+  const [weather, setWeather] = useState({
+    temperature: 18,
+    condition: 'partly_cloudy',
+    windSpeed: 10,
+    visibility: 'good'
+  });
+  const [isScanningQR, setIsScanningQR] = useState(false);
+
+  // Innovative features state
+  const [achievements, setAchievements] = useState<Achievement[]>([
+    {
+      id: 'first_delivery',
+      title: 'First Delivery',
+      description: 'Complete your first delivery',
+      icon: '🎯',
+      points: 10,
+      progress: 1,
+      maxProgress: 1,
+      category: 'deliveries',
+      rarity: 'common',
+      unlockedAt: Date.now() - 86400000
+    },
+    {
+      id: 'speed_demon',
+      title: 'Speed Demon',
+      description: 'Complete 10 deliveries in under 30 minutes each',
+      icon: '⚡',
+      points: 50,
+      progress: 7,
+      maxProgress: 10,
+      category: 'deliveries',
+      rarity: 'rare'
+    },
+    {
+      id: 'perfect_week',
+      title: 'Perfect Week',
+      description: 'Maintain 5.0 rating for 7 consecutive days',
+      icon: '⭐',
+      points: 100,
+      progress: 5,
+      maxProgress: 7,
+      category: 'ratings',
+      rarity: 'epic'
+    }
+  ]);
+  
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([
+    {
+      id: '1',
+      type: 'location',
+      title: 'Move to City Center',
+      description: 'High demand area detected 0.5 miles away. Potential earnings increase: £15-25/hour.',
+      priority: 'high',
+      potentialSavings: 20,
+      confidence: 0.85,
+      timestamp: Date.now() - 300000
+    },
+    {
+      id: '2',
+      type: 'timing',
+      title: 'Peak Hours Starting Soon',
+      description: 'Lunch rush begins in 15 minutes. Consider staying in current area for maximum orders.',
+      priority: 'medium',
+      estimatedTime: 15,
+      confidence: 0.92,
+      timestamp: Date.now() - 600000
+    }
+  ]);
+
+  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([
+    {
+      id: '1',
+      authorName: 'Alex Chen',
+      content: 'Just hit my 1000th delivery! The key is staying near business districts during lunch hours 🍕',
+      timestamp: Date.now() - 3600000,
+      likes: 24,
+      comments: 8,
+      isLiked: false,
+      tags: ['milestone', 'tips']
+    },
+    {
+      id: '2',
+      authorName: 'Sarah Johnson',
+      content: 'Pro tip: Always have a phone charger and cooling bag. Saved me today! 🔋❄️',
+      timestamp: Date.now() - 7200000,
+      likes: 45,
+      comments: 12,
+      isLiked: true,
+      tags: ['tips', 'equipment']
+    }
+  ]);
+
+  const [trafficIncidents, setTrafficIncidents] = useState<TrafficIncident[]>([
+    {
+      id: '1',
+      type: 'heavy_traffic',
+      severity: 'medium',
+      location: {
+        latitude: 51.5074,
+        longitude: -0.1278,
+        description: 'Oxford Street'
+      },
+      estimatedDelay: 10,
+      alternateRoute: 'Take Regent Street instead',
+      timestamp: Date.now() - 900000
+    }
+  ]);
+
+  const [voiceCommandsEnabled, setVoiceCommandsEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  // Realistic job features state
+  const [documentStatuses, setDocumentStatuses] = useState<DocumentStatus[]>([
+    {
+      type: 'driving_licence',
+      expiryDate: Date.now() + (30 * 24 * 60 * 60 * 1000),
+      status: 'valid',
+      daysUntilExpiry: 30,
+      renewalRequired: false
+    },
+    {
+      type: 'insurance',
+      expiryDate: Date.now() + (45 * 24 * 60 * 60 * 1000),
+      status: 'valid',
+      daysUntilExpiry: 45,
+      renewalRequired: false
+    },
+    {
+      type: 'registration',
+      expiryDate: Date.now() + (60 * 24 * 60 * 60 * 1000),
+      status: 'valid',
+      daysUntilExpiry: 60,
+      renewalRequired: false
+    },
+    {
+      type: 'background_check',
+      expiryDate: Date.now() + (365 * 24 * 60 * 60 * 1000),
+      status: 'valid',
+      daysUntilExpiry: 365,
+      renewalRequired: false
+    }
+  ]);
+
+  const [financialPressure, setFinancialPressure] = useState<FinancialPressure>({
+    weeklyExpenses: 250,
+    vehicleMaintenance: 50,
+    insurancePayment: 80,
+    fuelCosts: 70,
+    phoneBill: 30,
+    weeklyTarget: 400,
+    currentWeekProgress: 0,
+    debtAmount: 0,
+    missedWeeklyTargets: 0
+  });
+
+  const [rankDecay, setRankDecay] = useState<RankDecay>({
+    currentRank: user.tier,
+    points: user.points,
+    lastActivityDate: Date.now(),
+    decayRate: 5, // points lost per day of inactivity
+    warningLevel: 'none',
+    daysUntilDemotion: 30,
+    performanceScore: 85
+  });
+
+  const [offlineNotifications, setOfflineNotifications] = useState<OfflineNotification[]>([]);
+  const [lastOnlineTime, setLastOnlineTime] = useState(Date.now());
+  const [consecutiveOfflineDays, setConsecutiveOfflineDays] = useState(0);
+
+  // Authentication state
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [loginCredentials, setLoginCredentials] = useState<UserCredentials>({ email: '', password: '' });
+  const [registerCredentials, setRegisterCredentials] = useState<UserCredentials>({ email: '', password: '', phoneNumber: '' });
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationMethod, setVerificationMethod] = useState<'email' | 'sms'>('email');
+  const [authError, setAuthError] = useState('');
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
+
+  // Realistic job consequences - Rank Decay System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const daysSinceLastActivity = Math.floor((now - rankDecay.lastActivityDate) / (24 * 60 * 60 * 1000));
+      
+      if (daysSinceLastActivity > 0 && !user.isOnline) {
+        const pointsLost = daysSinceLastActivity * rankDecay.decayRate;
+        const newPoints = Math.max(0, rankDecay.points - pointsLost);
+        
+        // Calculate new rank based on points
+        let newRank: UberProTier = 'Blue';
+        if (newPoints >= 1000) newRank = 'Diamond';
+        else if (newPoints >= 600) newRank = 'Platinum';
+        else if (newPoints >= 300) newRank = 'Gold';
+        
+        // Determine warning level
+        let warningLevel: RankDecay['warningLevel'] = 'none';
+        let daysUntilDemotion = 30;
+        
+        if (newRank === 'Diamond' && newPoints < 1000) {
+          warningLevel = 'critical';
+          daysUntilDemotion = 3;
+        } else if (newRank === 'Platinum' && newPoints < 600) {
+          warningLevel = 'warning';
+          daysUntilDemotion = 7;
+        } else if (newRank === 'Gold' && newPoints < 300) {
+          warningLevel = 'demotion_imminent';
+          daysUntilDemotion = 1;
+        }
+        
+        setRankDecay(prev => ({
+          ...prev,
+          points: newPoints,
+          currentRank: newRank,
+          warningLevel,
+          daysUntilDemotion,
+          lastActivityDate: prev.lastActivityDate
+        }));
+        
+        // Update user profile if rank changed
+        if (newRank !== user.tier) {
+          setUser(prev => ({ ...prev, tier: newRank, points: newPoints }));
+          
+          // Add offline notification for rank decay
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'rank_decay_warning',
+            title: 'Rank Decay Alert',
+            message: `Your rank has decayed to ${newRank} due to inactivity. Get back online to stop the decay!`,
+            priority: warningLevel === 'critical' ? 'urgent' : 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        }
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [user.isOnline, rankDecay.lastActivityDate, rankDecay.decayRate]);
+
+  // Document Expiration System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const updatedDocuments = documentStatuses.map(doc => {
+        const daysUntilExpiry = Math.ceil((doc.expiryDate - now) / (24 * 60 * 60 * 1000));
+        let status: DocumentStatus['status'] = doc.status;
+        let renewalRequired = doc.renewalRequired;
+        
+        if (daysUntilExpiry <= 0) {
+          status = 'expired';
+          renewalRequired = true;
+        } else if (daysUntilExpiry <= 7) {
+          status = 'expiring_soon';
+          renewalRequired = true;
+        }
+        
+        return { ...doc, daysUntilExpiry, status, renewalRequired };
+      });
+      
+      setDocumentStatuses(updatedDocuments);
+      
+      // Check for expired documents and prevent going online
+      const hasExpiredDocs = updatedDocuments.some(doc => doc.status === 'expired');
+      if (hasExpiredDocs && user.isOnline) {
+        setUser(prev => ({ ...prev, isOnline: false }));
+        sendNotification("Documents Expired", "You cannot go online with expired documents. Please renew them immediately.", 'high');
+        
+        const notification: OfflineNotification = {
+          id: Math.random().toString(),
+          type: 'document_expiry',
+          title: 'Document Expired',
+          message: 'Your documents have expired. You cannot work until they are renewed.',
+          priority: 'urgent',
+          timestamp: now,
+          isRead: false,
+          actionable: true,
+          actionUrl: 'account'
+        };
+        setOfflineNotifications(prev => [notification, ...prev]);
+      }
+      
+      // Send reminders for expiring documents
+      updatedDocuments.forEach(doc => {
+        if (doc.status === 'expiring_soon' && (!doc.lastReminder || now - doc.lastReminder > 24 * 60 * 60 * 1000)) {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'document_expiry',
+            title: 'Document Expiring Soon',
+            message: `Your ${doc.type.replace('_', ' ')} expires in ${doc.daysUntilExpiry} days.`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'account'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+          
+          setDocumentStatuses(prev => prev.map(d => 
+            d.type === doc.type ? { ...d, lastReminder: now } : d
+          ));
+        }
+      });
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Offline Notifications for Surges and Quests
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!user.isOnline) {
+        const now = Date.now();
+        
+        // Send surge alerts when offline
+        if (currentSurge > 1.5 && Math.random() < 0.3) {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'surge_alert',
+            title: '🔥 Surge Pricing Active!',
+            message: `${currentSurge.toFixed(1)}x surge in ${currentCity}. You\'re missing out on higher earnings!`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+          
+          // Show browser notification if permission granted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Surge Pricing Active!', {
+              body: `${currentSurge.toFixed(1)}x surge in ${currentCity}`,
+              icon: '/favicon.ico',
+              tag: `surge-${now}`,
+              requireInteraction: true
+            });
+          }
+        }
+        
+        // Send quest expiration warnings
+        const expiringQuests = quests.filter(quest => 
+          !quest.completed && 
+          quest.expiresAt && 
+          quest.expiresAt - now < 2 * 60 * 60 * 1000 && // Expires in less than 2 hours
+          quest.expiresAt - now > 0 // Not already expired
+        );
+        
+        expiringQuests.forEach(quest => {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'quest_expire_warning',
+            title: '⏰ Quest Expiring Soon',
+            message: `"${quest.title}" expires soon. Complete it to earn £${quest.reward}!`,
+            priority: 'medium',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        });
+        
+        // Send missed opportunity notifications
+        if (Math.random() < 0.1) {
+          const missedEarnings = (Math.random() * 20 + 10).toFixed(2);
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'missed_opportunity',
+            title: '💸 Missed Earnings',
+            message: `You missed out on approximately £${missedEarnings} while offline.`,
+            priority: 'low',
+            timestamp: now,
+            isRead: false,
+            actionable: false
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        }
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user.isOnline, currentSurge, currentCity, quests]);
+
+  // Financial Pressure System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const dayOfWeek = new Date(now).getDay();
+      const isStartOfWeek = dayOfWeek === 1; // Monday
+      
+      if (isStartOfWeek) {
+        // Check if weekly target was met
+        if (financialPressure.currentWeekProgress < financialPressure.weeklyTarget) {
+          const shortfall = financialPressure.weeklyTarget - financialPressure.currentWeekProgress;
+          const newDebt = financialPressure.debtAmount + shortfall;
+          
+          setFinancialPressure(prev => ({
+            ...prev,
+            debtAmount: newDebt,
+            missedWeeklyTargets: prev.missedWeeklyTargets + 1,
+            currentWeekProgress: 0
+          }));
+          
+          // Send debt notification
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'missed_opportunity',
+            title: '💳 Weekly Target Missed',
+            message: `You missed your weekly target by £${shortfall.toFixed(2)}. Debt: £${newDebt.toFixed(2)}`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'earnings'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        } else {
+          // Reset weekly progress
+          setFinancialPressure(prev => ({
+            ...prev,
+            currentWeekProgress: 0
+          }));
+        }
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [financialPressure.currentWeekProgress, financialPressure.weeklyTarget]);
+
+  // Track online/offline status
+  useEffect(() => {
+    if (user.isOnline) {
+      setLastOnlineTime(Date.now());
+      setConsecutiveOfflineDays(0);
+      setRankDecay(prev => ({ ...prev, lastActivityDate: Date.now() }));
+    } else {
+      const offlineDuration = Date.now() - lastOnlineTime;
+      const offlineDays = Math.floor(offlineDuration / (24 * 60 * 60 * 1000));
+      setConsecutiveOfflineDays(offlineDays);
+    }
+  }, [user.isOnline, lastOnlineTime]);
+
   // Generate random hotspots around driver
   useEffect(() => {
     if (location) {
@@ -708,6 +1216,273 @@ export default function App() {
     const interval = setInterval(updateSurge, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, [location]);
+
+  // Realistic job consequences - Rank Decay System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const daysSinceLastActivity = Math.floor((now - rankDecay.lastActivityDate) / (24 * 60 * 60 * 1000));
+      
+      if (daysSinceLastActivity > 0 && !user.isOnline) {
+        const pointsLost = daysSinceLastActivity * rankDecay.decayRate;
+        const newPoints = Math.max(0, rankDecay.points - pointsLost);
+        
+        // Calculate new rank based on points
+        let newRank: UberProTier = 'Blue';
+        if (newPoints >= 1000) newRank = 'Diamond';
+        else if (newPoints >= 600) newRank = 'Platinum';
+        else if (newPoints >= 300) newRank = 'Gold';
+        
+        // Determine warning level
+        let warningLevel: RankDecay['warningLevel'] = 'none';
+        let daysUntilDemotion = 30;
+        
+        if (newRank === 'Diamond' && newPoints < 1000) {
+          warningLevel = 'critical';
+          daysUntilDemotion = 3;
+        } else if (newRank === 'Platinum' && newPoints < 600) {
+          warningLevel = 'warning';
+          daysUntilDemotion = 7;
+        } else if (newRank === 'Gold' && newPoints < 300) {
+          warningLevel = 'demotion_imminent';
+          daysUntilDemotion = 1;
+        }
+        
+        setRankDecay(prev => ({
+          ...prev,
+          points: newPoints,
+          currentRank: newRank,
+          warningLevel,
+          daysUntilDemotion,
+          lastActivityDate: prev.lastActivityDate
+        }));
+        
+        // Update user profile if rank changed
+        if (newRank !== user.tier) {
+          setUser(prev => ({ ...prev, tier: newRank, points: newPoints }));
+          
+          // Add offline notification for rank decay
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'rank_decay_warning',
+            title: 'Rank Decay Alert',
+            message: `Your rank has decayed to ${newRank} due to inactivity. Get back online to stop the decay!`,
+            priority: warningLevel === 'critical' ? 'urgent' : 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        }
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [user.isOnline, rankDecay.lastActivityDate, rankDecay.decayRate]);
+
+  // Document Expiration System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const updatedDocuments = documentStatuses.map(doc => {
+        const daysUntilExpiry = Math.ceil((doc.expiryDate - now) / (24 * 60 * 60 * 1000));
+        let status: DocumentStatus['status'] = doc.status;
+        let renewalRequired = doc.renewalRequired;
+        
+        if (daysUntilExpiry <= 0) {
+          status = 'expired';
+          renewalRequired = true;
+        } else if (daysUntilExpiry <= 7) {
+          status = 'expiring_soon';
+          renewalRequired = true;
+        }
+        
+        return { ...doc, daysUntilExpiry, status, renewalRequired };
+      });
+      
+      setDocumentStatuses(updatedDocuments);
+      
+      // Check for expired documents and prevent going online
+      const hasExpiredDocs = updatedDocuments.some(doc => doc.status === 'expired');
+      if (hasExpiredDocs && user.isOnline) {
+        setUser(prev => ({ ...prev, isOnline: false }));
+        sendNotification("Documents Expired", "You cannot go online with expired documents. Please renew them immediately.", 'high');
+        
+        const notification: OfflineNotification = {
+          id: Math.random().toString(),
+          type: 'document_expiry',
+          title: 'Document Expired',
+          message: 'Your documents have expired. You cannot work until they are renewed.',
+          priority: 'urgent',
+          timestamp: now,
+          isRead: false,
+          actionable: true,
+          actionUrl: 'account'
+        };
+        setOfflineNotifications(prev => [notification, ...prev]);
+      }
+      
+      // Send reminders for expiring documents
+      updatedDocuments.forEach(doc => {
+        if (doc.status === 'expiring_soon' && (!doc.lastReminder || now - doc.lastReminder > 24 * 60 * 60 * 1000)) {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'document_expiry',
+            title: 'Document Expiring Soon',
+            message: `Your ${doc.type.replace('_', ' ')} expires in ${doc.daysUntilExpiry} days.`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'account'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+          
+          setDocumentStatuses(prev => prev.map(d => 
+            d.type === doc.type ? { ...d, lastReminder: now } : d
+          ));
+        }
+      });
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Offline Notifications for Surges and Quests
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!user.isOnline) {
+        const now = Date.now();
+        
+        // Send surge alerts when offline
+        if (currentSurge > 1.5 && Math.random() < 0.3) {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'surge_alert',
+            title: '🔥 Surge Pricing Active!',
+            message: `${currentSurge.toFixed(1)}x surge in ${currentCity}. You\'re missing out on higher earnings!`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+          
+          // Show browser notification if permission granted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Surge Pricing Active!', {
+              body: `${currentSurge.toFixed(1)}x surge in ${currentCity}`,
+              icon: '/favicon.ico',
+              tag: `surge-${now}`,
+              requireInteraction: true
+            });
+          }
+        }
+        
+        // Send quest expiration warnings
+        const expiringQuests = quests.filter(quest => 
+          !quest.completed && 
+          quest.expiresAt && 
+          quest.expiresAt - now < 2 * 60 * 60 * 1000 && // Expires in less than 2 hours
+          quest.expiresAt - now > 0 // Not already expired
+        );
+        
+        expiringQuests.forEach(quest => {
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'quest_expire_warning',
+            title: '⏰ Quest Expiring Soon',
+            message: `"${quest.title}" expires soon. Complete it to earn £${quest.reward}!`,
+            priority: 'medium',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'home'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        });
+        
+        // Send missed opportunity notifications
+        if (Math.random() < 0.1) {
+          const missedEarnings = (Math.random() * 20 + 10).toFixed(2);
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'missed_opportunity',
+            title: '💸 Missed Earnings',
+            message: `You missed out on approximately £${missedEarnings} while offline.`,
+            priority: 'low',
+            timestamp: now,
+            isRead: false,
+            actionable: false
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        }
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [user.isOnline, currentSurge, currentCity, quests]);
+
+  // Financial Pressure System
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const dayOfWeek = new Date(now).getDay();
+      const isStartOfWeek = dayOfWeek === 1; // Monday
+      
+      if (isStartOfWeek) {
+        // Check if weekly target was met
+        if (financialPressure.currentWeekProgress < financialPressure.weeklyTarget) {
+          const shortfall = financialPressure.weeklyTarget - financialPressure.currentWeekProgress;
+          const newDebt = financialPressure.debtAmount + shortfall;
+          
+          setFinancialPressure(prev => ({
+            ...prev,
+            debtAmount: newDebt,
+            missedWeeklyTargets: prev.missedWeeklyTargets + 1,
+            currentWeekProgress: 0
+          }));
+          
+          // Send debt notification
+          const notification: OfflineNotification = {
+            id: Math.random().toString(),
+            type: 'missed_opportunity',
+            title: '💳 Weekly Target Missed',
+            message: `You missed your weekly target by £${shortfall.toFixed(2)}. Debt: £${newDebt.toFixed(2)}`,
+            priority: 'high',
+            timestamp: now,
+            isRead: false,
+            actionable: true,
+            actionUrl: 'earnings'
+          };
+          setOfflineNotifications(prev => [notification, ...prev]);
+        } else {
+          // Reset weekly progress
+          setFinancialPressure(prev => ({
+            ...prev,
+            currentWeekProgress: 0
+          }));
+        }
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [financialPressure.currentWeekProgress, financialPressure.weeklyTarget]);
+
+  // Track online/offline status
+  useEffect(() => {
+    if (user.isOnline) {
+      setLastOnlineTime(Date.now());
+      setConsecutiveOfflineDays(0);
+      setRankDecay(prev => ({ ...prev, lastActivityDate: Date.now() }));
+    } else {
+      const offlineDuration = Date.now() - lastOnlineTime;
+      const offlineDays = Math.floor(offlineDuration / (24 * 60 * 60 * 1000));
+      setConsecutiveOfflineDays(offlineDays);
+    }
+  }, [user.isOnline, lastOnlineTime]);
 
   // Customer Response Timer Logic
   useEffect(() => {
@@ -1228,7 +2003,12 @@ export default function App() {
             soundType = 'bonus';
             notificationTitle = "💰 Bonus Order!";
             notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • Extra Pay!`;
+          } else if (newOrder.orderType === 'Smart Match') {
+            soundType = 'smart_match';
+            notificationTitle = "🎯 Smart Match";
+            notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName} • AI Optimized!`;
           } else if (useSmart) {
+            soundType = 'smart_match';
             notificationTitle = "🎯 Smart Match";
           }
           
@@ -1304,7 +2084,7 @@ export default function App() {
 
   const [emailVerifyRequestedForOnline, setEmailVerifyRequestedForOnline] = useState(false);
 
-  const playUberSound = (type: 'order' | 'accept' | 'message' | 'complete' | 'smart_match' | 'normal_match' | 'urgent' | 'bonus') => {
+  const playUberSound = (type: 'order' | 'accept' | 'message' | 'complete' | 'smart_match' | 'normal_match' | 'urgent' | 'bonus' | 'error' | 'notification' | 'success') => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       
@@ -1397,6 +2177,231 @@ export default function App() {
   };
 
   const [isFlashing, setIsFlashing] = useState(false);
+
+  // Authentication Functions
+  const handleLogin = async () => {
+    if (!loginCredentials.email || !loginCredentials.password) {
+      setAuthError('Please enter email and password');
+      return;
+    }
+
+    setIsLoadingAuth(true);
+    setAuthError('');
+
+    try {
+      const response = await cloudStorage.loginUser(loginCredentials);
+      
+      if (response.success) {
+        if (response.requiresVerification) {
+          // User needs to verify
+          setVerificationMethod(response.verificationMethod!);
+          setCurrentScreen('email_verification');
+        } else {
+          // Login successful
+          const session = cloudStorage.getCurrentSession();
+          setAuthSession(session);
+          
+          // Load user profile from cloud
+          await loadUserProfile(response.userId!);
+          setCurrentScreen('home');
+        }
+      } else {
+        setAuthError(response.error || 'Login failed');
+      }
+    } catch (error) {
+      setAuthError('Login failed');
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!registerCredentials.email || !registerCredentials.password) {
+      setAuthError('Please enter email and password');
+      return;
+    }
+
+    if (registerCredentials.password.length < 6) {
+      setAuthError('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsLoadingAuth(true);
+    setAuthError('');
+
+    try {
+      const response = await cloudStorage.registerUser(registerCredentials);
+      
+      if (response.success) {
+        if (response.requiresVerification) {
+          setVerificationMethod(response.verificationMethod!);
+          setCurrentScreen('email_verification');
+        } else {
+          // Registration successful
+          const session = cloudStorage.getCurrentSession();
+          setAuthSession(session);
+          setCurrentScreen('home');
+        }
+      } else {
+        setAuthError(response.error || 'Registration failed');
+      }
+    } catch (error) {
+      setAuthError('Registration failed');
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode) {
+      setAuthError('Please enter verification code');
+      return;
+    }
+
+    setIsLoadingAuth(true);
+    setAuthError('');
+
+    try {
+      let response;
+      
+      if (verificationMethod === 'email') {
+        response = await cloudStorage.verifyEmailCode(
+          isRegistering ? registerCredentials.email : loginCredentials.email,
+          verificationCode
+        );
+      } else {
+        response = await cloudStorage.verifySMSCode(
+          isRegistering ? registerCredentials.phoneNumber! : loginCredentials.phoneNumber!,
+          verificationCode
+        );
+      }
+
+      if (response.success) {
+        const session = cloudStorage.getCurrentSession();
+        setAuthSession(session);
+        
+        // Load or create user profile
+        await loadUserProfile(response.userId!);
+        
+        // Auto-sync to cloud for new users
+        if (isRegistering) {
+          await cloudStorage.saveProfile({
+            email: session!.email,
+            name: registerCredentials.email.split('@')[0],
+            rating: 5.0,
+            tier: 'Blue',
+            points: 0,
+            deliveries: 0,
+            isOnline: false,
+            documentsUploaded: false,
+            faceVerified: false,
+            earnings: 0,
+            bankBalance: 0,
+            purchasedItems: [],
+            totalDistance: 0,
+            totalTime: 0,
+            achievements: []
+          });
+        }
+        
+        setCurrentScreen('home');
+      } else {
+        setAuthError(response.error || 'Verification failed');
+      }
+    } catch (error) {
+      setAuthError('Verification failed');
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setIsLoadingAuth(true);
+    setAuthError('');
+
+    try {
+      let success;
+      
+      if (verificationMethod === 'email') {
+        success = await cloudStorage.sendEmailVerification(
+          isRegistering ? registerCredentials.email : loginCredentials.email
+        );
+      } else {
+        success = await cloudStorage.sendSMSVerification(
+          isRegistering ? registerCredentials.phoneNumber! : loginCredentials.phoneNumber!
+        );
+      }
+
+      if (!success) {
+        setAuthError('Failed to resend verification code');
+      }
+    } catch (error) {
+      setAuthError('Failed to resend verification code');
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  };
+
+  const handleLogout = () => {
+    cloudStorage.logout();
+    setAuthSession(null);
+    setLoginCredentials({ email: '', password: '' });
+    setRegisterCredentials({ email: '', password: '', phoneNumber: '' });
+    setVerificationCode('');
+    setAuthError('');
+    setCurrentScreen('onboarding');
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      // Try to load from cloud first
+      const cloudProfile = await cloudStorage.loadProfile();
+      
+      if (cloudProfile) {
+        setUser({
+          name: cloudProfile.name,
+          rating: cloudProfile.rating,
+          tier: cloudProfile.tier,
+          points: cloudProfile.points,
+          deliveries: cloudProfile.deliveries,
+          isOnline: cloudProfile.isOnline,
+          documentsUploaded: cloudProfile.documentsUploaded,
+          faceVerified: cloudProfile.faceVerified,
+          email: cloudProfile.email,
+          profilePic: cloudProfile.profilePic
+        });
+        setEarnings(cloudProfile.earnings);
+        setBankBalance(cloudProfile.bankBalance);
+      } else {
+        // Create default profile for new users
+        const defaultProfile = {
+          name: 'Driver',
+          rating: 5.0,
+          tier: 'Blue' as UberProTier,
+          points: 0,
+          deliveries: 0,
+          isOnline: false,
+          documentsUploaded: false,
+          faceVerified: false,
+          email: authSession?.email || '',
+          profilePic: undefined
+        };
+        setUser(defaultProfile);
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    }
+  };
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const session = cloudStorage.getCurrentSession();
+    if (session) {
+      setAuthSession(session);
+      loadUserProfile(session.userId);
+      setCurrentScreen('home');
+    }
+  }, []);
 
   // Verification function for going online
   const verifyToGoOnline = async () => {
@@ -1768,9 +2773,17 @@ export default function App() {
           { icon: <TrendingUp />, label: "Earnings", screen: 'earnings_detail' },
           { icon: <CreditCard />, label: "Wallet", screen: 'wallet' },
           { icon: <Star />, label: "Uber Pro", screen: 'uber_pro' },
-          { icon: <Mail />, label: "Inbox", screen: 'inbox' },
-          { icon: <ShieldCheck />, label: "Safety Toolkit", screen: 'safety' },
-          { icon: <Settings />, label: "Account", screen: 'account' },
+          { icon: <Map />, label: "Heatmap", screen: 'heatmap' },
+          { icon: <Users />, label: "Referrals", screen: 'referrals' },
+          { icon: <Car />, label: "Vehicles", screen: 'vehicles' },
+          { icon: <Calendar />, label: "Scheduled", screen: 'scheduled' },
+          { icon: <Fuel />, label: "Fuel Tracking", screen: 'fuel' },
+          { icon: <PhoneCall />, label: "Emergency", screen: 'emergency' },
+          { icon: <BarChart3 />, label: "Analytics", screen: 'analytics' },
+          { icon: <Gift />, label: "Promotions", screen: 'promotions' },
+          { icon: <QrCode />, label: "QR Scanner", screen: 'qr_scanner' },
+          { icon: <ShieldAlert />, label: "Safety", screen: 'safety' },
+          { icon: <Settings />, label: "Settings", screen: 'account' },
           { icon: <HelpCircle />, label: "Help", screen: 'home' },
         ].map((item, idx) => (
           <button 
@@ -1864,6 +2877,47 @@ export default function App() {
                   </button>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* Offline Notifications Display */}
+          {currentScreen === 'home' && offlineNotifications.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`absolute top-20 left-4 right-4 z-[90] space-y-2`}
+            >
+              {offlineNotifications.slice(0, 3).map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-2xl backdrop-blur-md border ${
+                    notification.priority === 'urgent' ? 'bg-red-500/20 border-red-500/50 text-red-400' :
+                    notification.priority === 'high' ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' :
+                    notification.priority === 'medium' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' :
+                    'bg-blue-500/20 border-blue-500/50 text-blue-400'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="font-black text-sm">{notification.title}</p>
+                      <p className="text-xs opacity-80 mt-1">{notification.message}</p>
+                    </div>
+                    {notification.actionable && (
+                      <button
+                        onClick={() => {
+                          if (notification.actionUrl) {
+                            setCurrentScreen(notification.actionUrl as AppScreen);
+                          }
+                          setOfflineNotifications(prev => prev.filter(n => n.id !== notification.id));
+                        }}
+                        className="px-2 py-1 bg-white/20 rounded-full text-xs font-black"
+                      >
+                        Action
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </motion.div>
           )}
         </AnimatePresence>
@@ -2596,59 +3650,16 @@ export default function App() {
               {!pendingOrder && !isBottomMenuOpen && (
                 <div className="absolute bottom-8 left-4 right-4 z-50">
                   {user.isOnline ? (
-                    <motion.div 
+                    <motion.button
                       initial={{ y: 100 }}
                       animate={{ y: 0 }}
-                      className={`w-full ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} rounded-full shadow-2xl border border-white/10 flex items-center justify-between px-6 py-4`}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setIsBottomMenuOpen(true)}
+                      className="bg-black text-white px-3 py-2 rounded-full font-black text-sm shadow-2xl flex items-center gap-2 border border-white/10"
                     >
-                      <button
-                        type="button"
-                        onClick={() => setIsBottomMenuOpen(true)}
-                        className="flex items-center gap-3 ml-2 active:scale-95 transition-transform"
-                      >
-                        <motion.div 
-                          animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ duration: 1, repeat: Infinity }}
-                          className="w-2 h-2 bg-blue-500 rounded-full" 
-                        />
-                        <span className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-black'}`}>
-                          {(() => {
-                            const hour = new Date().getHours();
-                            if (hour >= 11 && hour <= 14) {
-                              const lunchPhrases = [
-                                "Lunchtime rush — lots of orders",
-                                "Busy lunch hour",
-                                "Midday demand picking up"
-                              ];
-                              return lunchPhrases[Math.floor(Math.random() * lunchPhrases.length)];
-                            }
-                            if (hour >= 17 && hour <= 20) {
-                              const dinnerPhrases = [
-                                "Dinnertime — prime hours",
-                                "Evening rush in your area",
-                                "Busy dinner deliveries"
-                              ];
-                              return dinnerPhrases[Math.floor(Math.random() * dinnerPhrases.length)];
-                            }
-                            const idlePhrases = [
-                              "Finding trips",
-                              "Standing by for requests",
-                              "Waiting for the next order",
-                              "Checking nearby hotspots"
-                            ];
-                            return idlePhrases[Math.floor(Math.random() * idlePhrases.length)];
-                          })()}
-                        </span>
-                      </button>
-
-                      <button 
-                        onClick={() => {
-                          setUser(u => ({ ...u, isOnline: false, faceVerified: false }));
-                        }}
-                      >
-                        <span className="text-red-500 font-black text-sm">GO OFFLINE</span>
-                      </button>
-                    </motion.div>
+                      <Menu size={24} />
+                      <span>Go Online</span>
+                    </motion.button>
                   ) : (
                     /* Offline - Full menu */
                     <motion.div 
@@ -3526,6 +4537,469 @@ export default function App() {
                     <p className="font-black text-lg">£{(5 + Math.random() * 5).toFixed(2)}</p>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {currentScreen === 'heatmap' && (
+            <motion.div key="heatmap" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className={`h-full w-full p-6 overflow-y-auto ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-black'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={() => setCurrentScreen('home')} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}><X size={24} /></button>
+                <h1 className="text-3xl font-black">Earnings Heatmap</h1>
+              </div>
+
+              <div className={`rounded-3xl p-6 mb-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-black">{currentCity}</h2>
+                  <div className="flex items-center gap-2">
+                    <Thermometer size={16} />
+                    <span className="text-sm font-bold">{weather.temperature}°C</span>
+                    <Cloud size={16} />
+                    <span className="text-sm font-bold capitalize">{weather.condition.replace('_', ' ')}</span>
+                  </div>
+                </div>
+                
+                {/* Simulated Heatmap */}
+                <div className="relative h-64 bg-gradient-to-br from-green-500/20 via-yellow-500/30 to-red-500/40 rounded-2xl mb-4 overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <Map size={48} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm font-bold opacity-70">Live Earnings Hotspots</p>
+                    </div>
+                  </div>
+                  
+                  {/* Hotspot indicators */}
+                  {hotspots.map((hotspot, i) => (
+                    <div
+                      key={i}
+                      className="absolute rounded-full animate-pulse"
+                      style={{
+                        left: `${20 + (i * 15)}%`,
+                        top: `${15 + (i * 12)}%`,
+                        width: `${hotspot.size / 10}px`,
+                        height: `${hotspot.size / 10}px`,
+                        backgroundColor: hotspot.intensity > 0.6 ? 'rgba(239, 68, 68, 0.6)' : hotspot.intensity > 0.3 ? 'rgba(245, 158, 11, 0.6)' : 'rgba(34, 197, 94, 0.6)',
+                        filter: 'blur(8px)'
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="font-bold">Low demand</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="font-bold">Medium demand</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="font-bold">High demand</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`rounded-3xl p-6 mb-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h3 className="font-black text-xl mb-4">Peak Hours Today</h3>
+                <div className="space-y-3">
+                  {[
+                    { time: '12:00 PM - 2:00 PM', multiplier: 1.5, status: 'active' },
+                    { time: '6:00 PM - 8:00 PM', multiplier: 2.0, status: 'upcoming' },
+                    { time: '9:00 PM - 11:00 PM', multiplier: 1.8, status: 'upcoming' }
+                  ].map((peak, i) => (
+                    <div key={i} className={`flex items-center justify-between p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/5' : 'bg-white'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${peak.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                        <div>
+                          <p className="font-bold">{peak.time}</p>
+                          <p className="text-xs text-gray-400">{peak.multiplier}x multiplier</p>
+                        </div>
+                      </div>
+                      {peak.status === 'active' && (
+                        <span className="px-3 py-1 bg-green-500 text-white text-xs font-black rounded-full">ACTIVE</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h3 className="font-black text-xl mb-4">Earnings Insights</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/5' : 'bg-white'}`}>
+                    <p className="text-2xl font-black">£{earningsData.reduce((sum, d) => sum + d.earnings, 0).toFixed(0)}</p>
+                    <p className="text-xs text-gray-400">This week</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/5' : 'bg-white'}`}>
+                    <p className="text-2xl font-black">{earningsData.reduce((sum, d) => sum + d.orders, 0)}</p>
+                    <p className="text-xs text-gray-400">Total deliveries</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {currentScreen === 'referrals' && (
+            <motion.div key="referrals" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className={`h-full w-full p-6 overflow-y-auto ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-black'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={() => setCurrentScreen('home')} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}><X size={24} /></button>
+                <h1 className="text-3xl font-black">Referral Program</h1>
+              </div>
+
+              <div className={`rounded-3xl p-6 mb-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h2 className="text-xl font-black mb-4">Your Invite Code</h2>
+                <div className={`p-6 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'} border-2 border-dashed ${theme === 'dark' ? 'border-white/20' : 'border-gray-300'}`}>
+                  <div className="text-center">
+                    <p className="text-3xl font-black mb-2">{user.name.replace(/\s+/g, '').toUpperCase()}123</p>
+                    <p className="text-sm text-gray-400 mb-4">Share this code with new drivers</p>
+                    <button className="px-6 py-3 bg-black text-white rounded-2xl font-black text-sm active:scale-95 transition-transform">
+                      <Share2 size={16} className="inline mr-2" />
+                      Share Code
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`rounded-3xl p-6 mb-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h3 className="font-black text-xl mb-4">Referral Benefits</h3>
+                <div className="space-y-3">
+                  <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Gift size={20} className="text-green-500" />
+                      <span className="font-black">New Driver Bonus</span>
+                    </div>
+                    <p className="text-sm text-gray-400">£100 bonus for you, £100 for your referral</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Star size={20} className="text-yellow-500" />
+                      <span className="font-black">Tier Benefits</span>
+                    </div>
+                    <p className="text-sm text-gray-400">Referrals count toward Uber Pro tier progression</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h3 className="font-black text-xl mb-4">Your Referrals</h3>
+                {referrals.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users size={48} className="mx-auto mb-4 opacity-50" />
+                    <p className="text-gray-400 font-bold">No referrals yet</p>
+                    <p className="text-sm text-gray-400">Start sharing your code to earn bonuses!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {referrals.map((referral) => (
+                      <div key={referral.id} className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold">{referral.referredDriverName}</p>
+                            <p className="text-xs text-gray-400">{referral.referredDriverEmail}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`px-2 py-1 text-xs font-black rounded-full ${
+                              referral.status === 'completed' ? 'bg-green-500 text-white' :
+                              referral.status === 'pending' ? 'bg-yellow-500 text-white' :
+                              'bg-gray-500 text-white'
+                            }`}>
+                              {referral.status.toUpperCase()}
+                            </span>
+                            <p className="text-sm font-black mt-1">£{referral.bonusAmount}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {currentScreen === 'vehicles' && (
+            <motion.div key="vehicles" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className={`h-full w-full p-6 overflow-y-auto ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-black'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={() => setCurrentScreen('home')} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}><X size={24} /></button>
+                <h1 className="text-3xl font-black">My Vehicles</h1>
+              </div>
+
+              <div className="space-y-4">
+                {vehicles.map((vehicle) => (
+                  <div key={vehicle.id} className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'} ${vehicle.isPrimary ? 'border-2 border-green-500' : ''}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                          {vehicle.type === 'car' ? <Car size={24} /> : vehicle.type === 'bike' ? <Bike size={24} /> : <Truck size={24} />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-black text-lg">{vehicle.make} {vehicle.model}</p>
+                            {vehicle.isPrimary && <span className="px-2 py-1 bg-green-500 text-white text-xs font-black rounded-full">PRIMARY</span>}
+                          </div>
+                          <p className="text-sm text-gray-400">{vehicle.year} • {vehicle.licensePlate}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (!vehicle.isPrimary) {
+                            setVehicles(prev => prev.map(v => ({ ...v, isPrimary: v.id === vehicle.id })));
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-2xl font-black text-sm transition-colors ${
+                          vehicle.isPrimary ? 'bg-green-500 text-white' : theme === 'dark' ? 'bg-white/10 text-white' : 'bg-gray-200 text-black'
+                        }`}
+                      >
+                        {vehicle.isPrimary ? 'In Use' : 'Set Primary'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-white/5' : 'bg-white'}`}>
+                        <p className="text-xs text-gray-400 mb-1">Insurance</p>
+                        <p className="font-bold text-sm">
+                          {vehicle.insuranceExpiry ? new Date(vehicle.insuranceExpiry).toLocaleDateString() : 'Not added'}
+                        </p>
+                      </div>
+                      <div className={`p-3 rounded-2xl ${theme === 'dark' ? 'bg-white/5' : 'bg-white'}`}>
+                        <p className="text-xs text-gray-400 mb-1">Registration</p>
+                        <p className="font-bold text-sm">
+                          {vehicle.registrationExpiry ? new Date(vehicle.registrationExpiry).toLocaleDateString() : 'Not added'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button className={`w-full p-6 rounded-3xl border-2 border-dashed ${theme === 'dark' ? 'border-white/20' : 'border-gray-300'} flex items-center justify-center gap-4 transition-colors ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
+                    <Plus size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-black">Add Vehicle</p>
+                    <p className="text-sm text-gray-400">Add another vehicle to your account</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className={`rounded-3xl p-6 mt-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                <h3 className="font-black text-xl mb-4">Vehicle Statistics</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Total Miles Driven</span>
+                    <span className="font-black">1,247 miles</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Fuel Efficiency</span>
+                    <span className="font-black">32.5 MPG</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Last Maintenance</span>
+                    <span className="font-black">2 weeks ago</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {currentScreen === 'emergency' && (
+            <motion.div key="emergency" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className={`h-full w-full p-6 overflow-y-auto ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-black'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={() => setCurrentScreen('home')} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}><X size={24} /></button>
+                <h1 className="text-3xl font-black text-red-500">Emergency</h1>
+              </div>
+
+              <div className="space-y-4">
+                {/* SOS Button */}
+                <button className="w-full p-8 bg-red-500 text-white rounded-3xl animate-pulse">
+                  <PhoneCall size={48} className="mx-auto mb-4" />
+                  <p className="text-2xl font-black">SOS</p>
+                  <p className="text-sm opacity-90">Press and hold for 3 seconds</p>
+                </button>
+
+                {/* Emergency Contacts */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">Emergency Contacts</h3>
+                  <div className="space-y-3">
+                    {emergencyContacts.map((contact) => (
+                      <div key={contact.id} className={`flex items-center justify-between p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${contact.isPrimary ? 'bg-red-500 text-white' : theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
+                            <Phone size={20} />
+                          </div>
+                          <div>
+                            <p className="font-bold">{contact.name}</p>
+                            <p className="text-xs text-gray-400">{contact.relationship}</p>
+                          </div>
+                        </div>
+                        <button className="px-4 py-2 bg-red-500 text-white rounded-2xl font-black text-sm">
+                          Call
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Safety Features */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">Safety Features</h3>
+                  <div className="space-y-3">
+                    <button className={`w-full p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'} flex items-center justify-between`}>
+                      <div className="flex items-center gap-3">
+                        <ShieldAlert size={20} className="text-blue-500" />
+                        <span className="font-bold">Share Trip Status</span>
+                      </div>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </button>
+                    <button className={`w-full p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'} flex items-center justify-between`}>
+                      <div className="flex items-center gap-3">
+                        <MapPin size={20} className="text-green-500" />
+                        <span className="font-bold">Live Location Sharing</span>
+                      </div>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </button>
+                    <button className={`w-full p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'} flex items-center justify-between`}>
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle size={20} className="text-yellow-500" />
+                        <span className="font-bold">Report Incident</span>
+                      </div>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Emergency Tips */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">Emergency Tips</h3>
+                  <div className="space-y-2 text-sm">
+                    <p className="flex items-start gap-2">
+                      <span className="text-red-500">•</span>
+                      Always keep your phone charged and accessible
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <span className="text-red-500">•</span>
+                      Trust your instincts - if a situation feels unsafe, leave
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <span className="text-red-500">•</span>
+                      Park in well-lit areas and lock your vehicle
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {currentScreen === 'analytics' && (
+            <motion.div key="analytics" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className={`h-full w-full p-6 overflow-y-auto ${theme === 'dark' ? 'bg-[#0a0a0a] text-white' : 'bg-white text-black'}`}>
+              <div className="flex items-center gap-4 mb-8">
+                <button onClick={() => setCurrentScreen('home')} className={`p-2 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}><X size={24} /></button>
+                <h1 className="text-3xl font-black">Analytics</h1>
+              </div>
+
+              <div className="space-y-6">
+                {/* Performance Overview */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">Performance Overview</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp size={16} className="text-green-500" />
+                        <span className="text-xs text-gray-400">Avg. Hourly</span>
+                      </div>
+                      <p className="text-2xl font-black">£18.50</p>
+                      <p className="text-xs text-green-500">+12% vs last week</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Star size={16} className="text-yellow-500" />
+                        <span className="text-xs text-gray-400">Rating</span>
+                      </div>
+                      <p className="text-2xl font-black">{user.rating.toFixed(2)}</p>
+                      <p className="text-xs text-green-500">+0.03 this week</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock size={16} className="text-blue-500" />
+                        <span className="text-xs text-gray-400">Avg. Time</span>
+                      </div>
+                      <p className="text-2xl font-black">28m</p>
+                      <p className="text-xs text-green-500">-3m faster</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target size={16} className="text-purple-500" />
+                        <span className="text-xs text-gray-400">Accept Rate</span>
+                      </div>
+                      <p className="text-2xl font-black">87%</p>
+                      <p className="text-xs text-green-500">+5% this week</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Insights */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">AI Insights</h3>
+                  <div className="space-y-3">
+                    {aiSuggestions.map((suggestion) => (
+                      <div key={suggestion.id} className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            suggestion.priority === 'high' ? 'bg-red-500' :
+                            suggestion.priority === 'medium' ? 'bg-yellow-500' :
+                            'bg-green-500'
+                          } text-white`}>
+                            <Zap size={16} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold text-sm">{suggestion.title}</p>
+                            <p className="text-xs text-gray-400 mt-1">{suggestion.description}</p>
+                            <div className="flex items-center gap-4 mt-2">
+                              <span className="text-xs text-gray-400">Confidence: {Math.round(suggestion.confidence * 100)}%</span>
+                              {suggestion.potentialSavings && (
+                                <span className="text-xs text-green-500">+£{suggestion.potentialSavings}/hr</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Achievement Progress */}
+                <div className={`rounded-3xl p-6 ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}`}>
+                  <h3 className="font-black text-xl mb-4">Achievement Progress</h3>
+                  <div className="space-y-3">
+                    {achievements.filter(a => !a.unlockedAt).map((achievement) => (
+                      <div key={achievement.id} className={`p-4 rounded-2xl ${theme === 'dark' ? 'bg-white/10' : 'bg-white'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{achievement.icon}</span>
+                            <span className="font-bold text-sm">{achievement.title}</span>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            achievement.rarity === 'legendary' ? 'bg-purple-500 text-white' :
+                            achievement.rarity === 'epic' ? 'bg-blue-500 text-white' :
+                            achievement.rarity === 'rare' ? 'bg-green-500 text-white' :
+                            'bg-gray-500 text-white'
+                          }`}>
+                            {achievement.rarity}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2">{achievement.description}</p>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all"
+                            style={{ width: `${(achievement.progress / achievement.maxProgress) * 100}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">{achievement.progress}/{achievement.maxProgress}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
