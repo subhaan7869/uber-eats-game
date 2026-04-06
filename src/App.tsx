@@ -1987,7 +1987,7 @@ export default function App() {
           setOrderExpiryTimer(10);
           
           // Enhanced notifications based on order type
-          let soundType = useSmart ? 'smart_match' : 'normal_match';
+          let soundType: 'order' | 'accept' | 'message' | 'complete' | 'smart_match' | 'normal_match' | 'urgent' | 'bonus' | 'error' | 'notification' | 'success' = useSmart ? 'smart_match' : 'normal_match';
           let notificationTitle = "New Order";
           let notificationBody = `£${newOrder.estimatedPay.toFixed(2)} • ${newOrder.estimatedDistance.toFixed(1)} mi • ${newOrder.restaurantName}`;
           

@@ -39,8 +39,8 @@ export interface CloudSaveData {
 class CloudStorageService {
   private readonly STORAGE_KEY = 'uber_cloud_profile';
   private readonly BACKUP_KEY = 'uber_cloud_backup';
-  private readonly API_ENDPOINT = import.meta.env.VITE_CLOUD_API_URL || null;
-  private readonly AUTH_ENDPOINT = import.meta.env.VITE_CLOUD_AUTH_URL || null;
+  private readonly API_ENDPOINT = (import.meta as any)?.env?.VITE_CLOUD_API_URL || null;
+  private readonly AUTH_ENDPOINT = (import.meta as any)?.env?.VITE_CLOUD_AUTH_URL || null;
 
   // Generate verification code
   private generateVerificationCode(): string {
