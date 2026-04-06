@@ -540,6 +540,9 @@ export default function App() {
     if (deviceInfo.isDesktop) return 'desktop';
     return 'desktop';
   };
+
+  // Sleep utility function
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   const [verifyTimeoutUntil, setVerifyTimeoutUntil] = useState<number | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [hotspots, setHotspots] = useState<{ latitude: number, longitude: number, intensity: number, size: number }[]>([]);
@@ -1408,7 +1411,7 @@ export default function App() {
       }
     }
 
-    await new Promise(r => setTimeout(r, 2000));
+    await sleep(2000);
     
     // Sometimes fail to simulate "face not recognised"
     const isSuccess = Math.random() > 0.15;
