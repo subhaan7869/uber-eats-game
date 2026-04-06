@@ -1,6 +1,46 @@
 import React, { useState, useEffect } from 'react';
 
-type Screen = 'home' | 'earnings' | 'account' | 'onboarding' | 'documents' | 'face_verification' | 'orders' | 'map' | 'settings' | 'notifications' | 'analytics';
+type Screen = 'home' | 'earnings' | 'account' | 'onboarding' | 'documents' | 'face_verification' | 'orders' | 'map' | 'settings' | 'notifications' | 'analytics' | 'leaderboard';
+
+interface AnalyticsData {
+  todayStats: {
+    orders: number;
+    earnings: number;
+    distance: number;
+    avgOrderValue: number;
+    completionRate: number;
+  };
+  weeklyStats: {
+    orders: number;
+    earnings: number;
+    distance: number;
+    hoursOnline: number;
+    avgHourlyRate: number;
+  };
+  monthlyStats: {
+    orders: number;
+    earnings: number;
+    distance: number;
+    topRestaurant: string;
+    bestHour: string;
+  };
+  performanceMetrics: {
+    onTimeDeliveryRate: number;
+    customerRating: number;
+    acceptanceRate: number;
+    cancelRate: number;
+  };
+}
+
+interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  tier: string;
+  points: number;
+  deliveries: number;
+  rating: number;
+  earnings: number;
+}
 
 interface User {
   name: string;
@@ -413,6 +453,49 @@ function App() {
   }, [pendingOrder]);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // Analytics data
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
+    todayStats: {
+      orders: 12,
+      earnings: 124.50,
+      distance: 28.5,
+      avgOrderValue: 10.38,
+      completionRate: 95.8
+    },
+    weeklyStats: {
+      orders: 67,
+      earnings: 723.80,
+      distance: 156.2,
+      hoursOnline: 24.5,
+      avgHourlyRate: 29.55
+    },
+    monthlyStats: {
+      orders: 289,
+      earnings: 3124.60,
+      distance: 678.9,
+      topRestaurant: 'McDonalds',
+      bestHour: '7 PM - 8 PM'
+    },
+    performanceMetrics: {
+      onTimeDeliveryRate: 92.3,
+      customerRating: 4.8,
+      acceptanceRate: 78.5,
+      cancelRate: 2.1
+    }
+  });
+  
+  // Leaderboard data
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([
+    { rank: 1, name: 'Alex Thompson', tier: 'Diamond', points: 1247, deliveries: 892, rating: 4.9, earnings: 4567.80 },
+    { rank: 2, name: 'Sarah Chen', tier: 'Diamond', points: 1156, deliveries: 823, rating: 4.8, earnings: 4234.50 },
+    { rank: 3, name: 'Mike Johnson', tier: 'Platinum', points: 987, deliveries: 745, rating: 4.7, earnings: 3891.20 },
+    { rank: 4, name: 'Emma Wilson', tier: 'Platinum', points: 923, deliveries: 698, rating: 4.8, earnings: 3678.90 },
+    { rank: 5, name: 'James Brown', tier: 'Gold', points: 845, deliveries: 612, rating: 4.6, earnings: 3234.60 },
+    { rank: 6, name: 'Lisa Garcia', tier: 'Gold', points: 789, deliveries: 567, rating: 4.7, earnings: 2987.30 },
+    { rank: 7, name: 'David Lee', tier: 'Gold', points: 734, deliveries: 534, rating: 4.5, earnings: 2765.40 },
+    { rank: 8, name: 'You', tier: user.tier, points: user.points, deliveries: user.deliveries, rating: user.rating, earnings: earnings }
+  ]);
 
 // Enhanced sound system with toggle
   const playSound = (type: 'order_request' | 'order_accept' | 'order_complete' | 'notification' | 'error' | 'success' | 'surge' | 'warning') => {
@@ -634,6 +717,20 @@ function App() {
                 Uber Eats
               </h1>
               <div style={{ display: 'flex', gap: '15px' }}>
+                <button 
+                  onClick={() => setCurrentScreen('analytics')} 
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: '#fff', 
+                    fontSize: '22px',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  className="button-press"
+                >
+                  📊
+                </button>
                 <button 
                   onClick={() => setCurrentScreen('notifications')} 
                   style={{ 
@@ -1088,6 +1185,280 @@ function App() {
                 </div>
               </div>
             )}
+          </div>
+        );
+        
+      case 'analytics':
+        return (
+          <div style={{ padding: '20px', maxWidth: '400px', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <button 
+                onClick={() => setCurrentScreen('home')}
+                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Analytics</h1>
+            </div>
+            
+            {/* Today's Stats */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(52,199,89,0.8) 0%, rgba(52,199,89,0.6) 100%)',
+              padding: '20px',
+              borderRadius: '16px',
+              marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(52,199,89,0.3)'
+            }}>
+              <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#fff' }}>📊 Today's Performance</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.todayStats.orders}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Orders</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    £{analyticsData.todayStats.earnings.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Earnings</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.todayStats.distance} mi
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Distance</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    £{analyticsData.todayStats.avgOrderValue.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Avg Order</div>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '14px', color: '#fff' }}>Completion Rate</span>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.todayStats.completionRate}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Weekly Stats */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(255,149,0,0.8) 0%, rgba(255,149,0,0.6) 100%)',
+              padding: '20px',
+              borderRadius: '16px',
+              marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,149,0,0.3)'
+            }}>
+              <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#fff' }}>📈 Weekly Overview</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.weeklyStats.orders}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Orders</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    £{analyticsData.weeklyStats.earnings.toFixed(0)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Earnings</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.weeklyStats.hoursOnline}h
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Online</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    £{analyticsData.weeklyStats.avgHourlyRate.toFixed(1)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>/hr</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Monthly Stats */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(52,199,89,0.3) 0%, rgba(52,199,89,0.1) 100%)',
+              padding: '20px',
+              borderRadius: '16px',
+              marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(52,199,89,0.2)'
+            }}>
+              <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#fff' }}>📅 Monthly Summary</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.monthlyStats.orders}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Orders</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>
+                    £{analyticsData.monthlyStats.earnings.toFixed(0)}
+                  </div>
+                  <div style={{ fontSize: '12px', opacity: 0.9, color: '#fff' }}>Earnings</div>
+                </div>
+              </div>
+              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '14px', color: '#fff' }}>Top Restaurant</span>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.monthlyStats.topRestaurant}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '14px', color: '#fff' }}>Best Hour</span>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>
+                    {analyticsData.monthlyStats.bestHour}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Performance Metrics */}
+            <div style={{
+              background: '#111',
+              padding: '20px',
+              borderRadius: '16px',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#fff' }}>🎯 Performance</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#34c759' }}>
+                    {analyticsData.performanceMetrics.onTimeDeliveryRate}%
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>On-Time</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#FFD700' }}>
+                    ⭐ {analyticsData.performanceMetrics.customerRating}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>Rating</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2196f3' }}>
+                    {analyticsData.performanceMetrics.acceptanceRate}%
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>Accept Rate</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#ff3b30' }}>
+                    {analyticsData.performanceMetrics.cancelRate}%
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>Cancel Rate</div>
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setCurrentScreen('leaderboard')}
+              style={{
+                width: '100%',
+                padding: '16px',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '16px',
+                transition: 'all 0.2s ease'
+              }}
+              className="button-press"
+            >
+              🏆 View Leaderboard
+            </button>
+          </div>
+        );
+        
+      case 'leaderboard':
+        return (
+          <div style={{ padding: '20px', maxWidth: '400px', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <button 
+                onClick={() => setCurrentScreen('analytics')}
+                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer' }}
+              >
+                ←
+              </button>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>🏆 Leaderboard</h1>
+            </div>
+            
+            <div style={{ backgroundColor: '#111', padding: '20px', borderRadius: '16px' }}>
+              {leaderboardData.map((entry) => (
+                <div
+                  key={entry.rank}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '15px',
+                    marginBottom: '12px',
+                    borderRadius: '12px',
+                    backgroundColor: entry.name === 'You' ? 'rgba(52,199,89,0.2)' : 'rgba(255,255,255,0.05)',
+                    border: entry.name === 'You' ? '1px solid rgba(52,199,89,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  className="card-hover"
+                >
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    marginRight: '15px',
+                    backgroundColor: entry.rank <= 3 ? 
+                      (entry.rank === 1 ? '#FFD700' : entry.rank === 2 ? '#C0C0C0' : '#CD7F32') : 
+                      '#333',
+                    color: entry.rank <= 3 ? '#000' : '#fff'
+                  }}>
+                    {entry.rank}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      fontSize: '16px', 
+                      fontWeight: 'bold', 
+                      marginBottom: '4px',
+                      color: entry.name === 'You' ? '#34c759' : '#fff'
+                    }}>
+                      {entry.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        color: entry.tier === 'Diamond' ? '#B9F2FF' : 
+                               entry.tier === 'Platinum' ? '#E5E4E2' : 
+                               entry.tier === 'Gold' ? '#FFD700' : '#C0C0C0'
+                      }}>
+                        {entry.tier}
+                      </span>
+                      <span>• {entry.deliveries} deliveries</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff', marginBottom: '4px' }}>
+                      £{entry.earnings.toFixed(0)}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      ⭐ {entry.rating} • {entry.points} pts
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         );
         
