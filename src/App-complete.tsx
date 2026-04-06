@@ -500,65 +500,125 @@ function App() {
       case 'home':
         return (
           <div style={{ padding: '20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
+            {/* Header with enhanced styling */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: '20px',
-              padding: '10px 0'
+              padding: '15px 0',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+              borderRadius: '16px',
+              backdropFilter: 'blur(10px)'
             }}>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Uber Eats</h1>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={() => setCurrentScreen('notifications')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', position: 'relative' }}>
+              <h1 style={{ 
+                fontSize: '28px', 
+                fontWeight: '900', 
+                margin: 0,
+                background: 'linear-gradient(135deg, #fff 0%, #ccc 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-1px'
+              }}>
+                Uber Eats
+              </h1>
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <button 
+                  onClick={() => setCurrentScreen('notifications')} 
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: '#fff', 
+                    fontSize: '22px', 
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  className="button-press"
+                >
                   🔔
                   {offlineNotifications.filter(n => !n.isRead).length > 0 && (
                     <span style={{
                       position: 'absolute',
-                      top: '-5px',
-                      right: '-5px',
-                      backgroundColor: '#f44336',
+                      top: '-6px',
+                      right: '-6px',
+                      backgroundColor: '#ff3b30',
                       color: '#fff',
                       borderRadius: '50%',
-                      width: '16px',
-                      height: '16px',
-                      fontSize: '10px',
+                      width: '18px',
+                      height: '18px',
+                      fontSize: '11px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      fontWeight: 'bold',
+                      animation: 'pulse 2s infinite'
                     }}>
                       {offlineNotifications.filter(n => !n.isRead).length}
                     </span>
                   )}
                 </button>
-                <button onClick={() => setCurrentScreen('earnings')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px' }}>💰</button>
-                <button onClick={() => setCurrentScreen('account')} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px' }}>👤</button>
+                <button 
+                  onClick={() => setCurrentScreen('earnings')} 
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: '#fff', 
+                    fontSize: '22px',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  className="button-press"
+                >
+                  💰
+                </button>
+                <button 
+                  onClick={() => setCurrentScreen('account')} 
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: '#fff', 
+                    fontSize: '22px',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  className="button-press"
+                >
+                  👤
+                </button>
               </div>
             </div>
             
-            {/* Offline Notifications Display */}
-            {offlineNotifications.slice(0, 3).map((notification) => (
+            {/* Enhanced Offline Notifications */}
+            {offlineNotifications.slice(0, 3).map((notification, index) => (
               <div
                 key={notification.id}
+                className="notification-enter card-hover"
                 style={{
-                  padding: '12px',
-                  marginBottom: '10px',
-                  borderRadius: '8px',
-                  backgroundColor: notification.priority === 'urgent' ? '#f4433620' :
-                                   notification.priority === 'high' ? '#ff980020' :
-                                   notification.priority === 'medium' ? '#ffeb3b20' : '#2196f320',
-                  border: `1px solid ${notification.priority === 'urgent' ? '#f44336' :
-                                      notification.priority === 'high' ? '#ff9800' :
-                                      notification.priority === 'medium' ? '#ffeb3b' : '#2196f3'}`,
-                  color: notification.priority === 'urgent' ? '#f44336' :
-                         notification.priority === 'high' ? '#ff9800' :
-                         notification.priority === 'medium' ? '#ffeb3b' : '#2196f3'
+                  padding: '16px',
+                  marginBottom: '12px',
+                  borderRadius: '12px',
+                  backgroundColor: notification.priority === 'urgent' ? 'rgba(255,59,48,0.15)' :
+                                   notification.priority === 'high' ? 'rgba(255,149,0,0.15)' :
+                                   notification.priority === 'medium' ? 'rgba(255,204,0,0.15)' : 'rgba(52,199,89,0.15)',
+                  border: `1px solid ${notification.priority === 'urgent' ? 'rgba(255,59,48,0.3)' :
+                                      notification.priority === 'high' ? 'rgba(255,149,0,0.3)' :
+                                      notification.priority === 'medium' ? 'rgba(255,204,0,0.3)' : 'rgba(52,199,89,0.3)'}`,
+                  color: notification.priority === 'urgent' ? '#ff3b30' :
+                         notification.priority === 'high' ? '#ff9500' :
+                         notification.priority === 'medium' ? '#ffcc00' : '#34c759',
+                  backdropFilter: 'blur(10px)',
+                  animationDelay: `${index * 0.1}s`
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <p style={{ fontWeight: 'bold', fontSize: '12px', margin: '0 0 4px 0' }}>{notification.title}</p>
-                    <p style={{ fontSize: '11px', margin: 0, opacity: 0.8 }}>{notification.message}</p>
+                    <p style={{ fontWeight: '700', fontSize: '13px', margin: '0 0 6px 0', letterSpacing: '-0.3px' }}>
+                      {notification.title}
+                    </p>
+                    <p style={{ fontSize: '12px', margin: 0, opacity: 0.9, lineHeight: '1.4' }}>
+                      {notification.message}
+                    </p>
                   </div>
                   {notification.actionable && (
                     <button
@@ -569,15 +629,17 @@ function App() {
                         setOfflineNotifications(prev => prev.filter(n => n.id !== notification.id));
                       }}
                       style={{
-                        padding: '4px 8px',
-                        backgroundColor: '#fff',
+                        padding: '6px 12px',
+                        backgroundColor: 'rgba(255,255,255,0.9)',
                         color: '#000',
                         border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
                         cursor: 'pointer',
-                        fontWeight: 'bold'
+                        fontWeight: '600',
+                        transition: 'all 0.2s ease'
                       }}
+                      className="button-press"
                     >
                       Action
                     </button>
@@ -586,160 +648,310 @@ function App() {
               </div>
             ))}
             
-            {/* Status Cards */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {/* Enhanced Status Cards */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
               <div style={{
                 flex: 1,
-                backgroundColor: user.isOnline ? '#4CAF50' : '#333',
-                padding: '15px',
-                borderRadius: '12px',
-                textAlign: 'center'
+                background: user.isOnline ? 
+                  'linear-gradient(135deg, rgba(52,199,89,0.8) 0%, rgba(52,199,89,0.6) 100%)' :
+                  'linear-gradient(135deg, rgba(142,142,147,0.8) 0%, rgba(142,142,147,0.6) 100%)',
+                padding: '20px',
+                borderRadius: '16px',
+                textAlign: 'center',
+                backdropFilter: 'blur(10px)',
+                border: user.isOnline ? '1px solid rgba(52,199,89,0.3)' : '1px solid rgba(142,142,147,0.3)',
+                transition: 'all 0.3s ease',
+                cursor: 'pointer'
+              }}
+              className="card-hover"
+              onClick={toggleOnline}
+            >
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                marginBottom: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
-                  {user.isOnline ? '🟢 Online' : '🔴 Offline'}
-                </div>
-                <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                  {consecutiveOfflineDays > 0 && `Offline ${consecutiveOfflineDays} days`}
-                </div>
+                {user.isOnline ? '🟢 Online' : '🔴 Offline'}
+                {user.isOnline && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: '#fff',
+                    borderRadius: '50%',
+                    animation: 'pulse 2s infinite'
+                  }} />
+                )}
               </div>
+              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '500' }}>
+                {consecutiveOfflineDays > 0 && `Offline ${consecutiveOfflineDays} days`}
+                {user.isOnline && 'Tap to go offline'}
+                {!user.isOnline && consecutiveOfflineDays === 0 && 'Tap to go online'}
+              </div>
+            </div>
               
               <div style={{
                 flex: 1,
-                backgroundColor: currentSurge > 1.2 ? '#ff9800' : '#333',
-                padding: '15px',
-                borderRadius: '12px',
-                textAlign: 'center'
+                background: currentSurge > 1.2 ? 
+                  'linear-gradient(135deg, rgba(255,149,0,0.8) 0%, rgba(255,149,0,0.6) 100%)' :
+                  'linear-gradient(135deg, rgba(52,199,89,0.3) 0%, rgba(52,199,89,0.1) 100%)',
+                padding: '20px',
+                borderRadius: '16px',
+                textAlign: 'center',
+                backdropFilter: 'blur(10px)',
+                border: currentSurge > 1.2 ? '1px solid rgba(255,149,0,0.3)' : '1px solid rgba(52,199,89,0.2)',
+                transition: 'all 0.3s ease'
+              }}
+              className="card-hover"
+            >
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                marginBottom: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}>
-                <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
-                  🔥 {currentSurge > 1.2 ? `${currentSurge.toFixed(1)}x Surge` : 'Normal'}
-                </div>
-                <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                  {currentCity}
-                </div>
+                🔥 {currentSurge > 1.2 ? `${currentSurge.toFixed(1)}x Surge` : 'Normal'}
+                {currentSurge > 1.2 && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: '#fff',
+                    borderRadius: '50%',
+                    animation: 'pulse 1s infinite'
+                  }} />
+                )}
+              </div>
+              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '500' }}>
+                {currentCity} • {currentSurge > 1.2 ? 'High demand!' : 'Normal demand'}
               </div>
             </div>
+            </div>
             
-            {/* Rank Status */}
+            {/* Enhanced Rank Status */}
             <div style={{
-              backgroundColor: rankDecay.warningLevel === 'critical' ? '#f4433620' :
-                           rankDecay.warningLevel === 'warning' ? '#ff980020' : '#333',
-              padding: '15px',
-              borderRadius: '12px',
+              background: rankDecay.warningLevel === 'critical' ? 'linear-gradient(135deg, rgba(255,59,48,0.8) 0%, rgba(255,59,48,0.6) 100%)' :
+                           rankDecay.warningLevel === 'warning' ? 'linear-gradient(135deg, rgba(255,149,0,0.8) 0%, rgba(255,149,0,0.6) 100%)' :
+                           'linear-gradient(135deg, rgba(52,199,89,0.3) 0%, rgba(52,199,89,0.1) 100%)',
+              padding: '20px',
+              borderRadius: '16px',
               textAlign: 'center',
               marginBottom: '20px',
+              backdropFilter: 'blur(10px)',
               border: rankDecay.warningLevel !== 'none' ? `1px solid ${
-                rankDecay.warningLevel === 'critical' ? '#f44336' :
-                rankDecay.warningLevel === 'warning' ? '#ff9800' : '#333'
-              }` : 'none'
-            }}>
-              <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+                rankDecay.warningLevel === 'critical' ? 'rgba(255,59,48,0.3)' :
+                rankDecay.warningLevel === 'warning' ? 'rgba(255,149,0,0.3)' : 'rgba(52,199,89,0.2)'
+              }` : '1px solid rgba(52,199,89,0.2)',
+              transition: 'all 0.3s ease'
+            }}
+            className="card-hover"
+            >
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                marginBottom: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}>
                 🏆 {user.tier} Tier • {user.points} pts
+                {rankDecay.warningLevel !== 'none' && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: rankDecay.warningLevel === 'critical' ? '#ff3b30' :
+                                   rankDecay.warningLevel === 'warning' ? '#ff9500' : '#ffcc00',
+                    borderRadius: '50%',
+                    animation: 'pulse 1.5s infinite'
+                  }} />
+                )}
               </div>
-              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '500' }}>
                 {rankDecay.warningLevel !== 'none' && 
                  `⚠️ ${rankDecay.daysUntilDemotion} days to demotion`
                 }
+                {rankDecay.warningLevel === 'none' && 'Good standing'}
               </div>
             </div>
             
-            {/* Financial Pressure */}
+            {/* Enhanced Financial Pressure */}
             <div style={{
-              backgroundColor: financialPressure.debtAmount > 0 ? '#f4433620' : '#333',
-              padding: '15px',
-              borderRadius: '12px',
+              background: financialPressure.debtAmount > 0 ? 
+                'linear-gradient(135deg, rgba(255,59,48,0.8) 0%, rgba(255,59,48,0.6) 100%)' :
+                'linear-gradient(135deg, rgba(52,199,89,0.3) 0%, rgba(52,199,89,0.1) 100%)',
+              padding: '20px',
+              borderRadius: '16px',
               textAlign: 'center',
               marginBottom: '20px',
-              border: financialPressure.debtAmount > 0 ? '1px solid #f44336' : 'none'
-            }}>
-              <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+              backdropFilter: 'blur(10px)',
+              border: financialPressure.debtAmount > 0 ? '1px solid rgba(255,59,48,0.3)' : '1px solid rgba(52,199,89,0.2)',
+              transition: 'all 0.3s ease'
+            }}
+            className="card-hover"
+            >
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                marginBottom: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}>
                 💳 Weekly Target: £{financialPressure.weeklyTarget}
+                {financialPressure.debtAmount > 0 && (
+                  <span style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: '#ff3b30',
+                    borderRadius: '50%',
+                    animation: 'pulse 1s infinite'
+                  }} />
+                )}
               </div>
-              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '500' }}>
                 Progress: £{financialPressure.currentWeekProgress.toFixed(2)}
                 {financialPressure.debtAmount > 0 && ` • Debt: £${financialPressure.debtAmount.toFixed(2)}`}
+                {financialPressure.debtAmount === 0 && financialPressure.currentWeekProgress >= financialPressure.weeklyTarget && ' ✅ On track'}
               </div>
             </div>
             
-            {/* Online Status Toggle */}
-            <button 
-              onClick={toggleOnline}
-              style={{
-                padding: '15px',
-                fontSize: '18px',
-                backgroundColor: user.isOnline ? '#f44336' : '#4CAF50',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                width: '100%',
-                marginBottom: '20px'
-              }}
-            >
-              {user.isOnline ? 'Go Offline' : 'Go Online'}
-            </button>
-            
-            {/* Map Area */}
+            {/* Enhanced Map Area */}
             <div style={{
               flex: 1,
-              backgroundColor: '#111',
-              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(28,28,30,0.9) 0%, rgba(44,44,46,0.9) 100%)',
+              borderRadius: '16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{ textAlign: 'center', color: '#666' }}>
-                <div style={{ fontSize: '48px', marginBottom: '10px' }}>🗺️</div>
-                <p>Map View • {activeOrders.length} active orders</p>
+              overflow: 'hidden',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              transition: 'all 0.3s ease'
+            }}
+            className="card-hover"
+            >
+              {/* Map Grid Pattern */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+                opacity: 0.5
+              }} />
+              
+              <div style={{ textAlign: 'center', color: '#999', zIndex: 1 }}>
+                <div style={{ fontSize: '48px', marginBottom: '10px', opacity: 0.6 }}>🗺️</div>
+                <p style={{ fontSize: '14px', fontWeight: '500' }}>
+                  Map View • {activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''}
+                </p>
+                {user.isOnline && (
+                  <p style={{ fontSize: '12px', opacity: 0.7, marginTop: '5px' }}>
+                    Waiting for orders...
+                  </p>
+                )}
               </div>
             </div>
             
-            {/* Order Request */}
+            {/* Enhanced Order Request */}
             {pendingOrder && (
               <div style={{
                 position: 'absolute',
                 bottom: '20px',
                 left: '20px',
                 right: '20px',
-                backgroundColor: '#fff',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,248,248,0.95) 100%)',
                 color: '#000',
-                borderRadius: '12px',
-                padding: '20px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                borderRadius: '16px',
+                padding: '24px',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                animation: 'slideIn 0.3s ease-out'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ 
+                    fontWeight: '800', 
+                    fontSize: '20px',
+                    letterSpacing: '-0.5px'
+                  }}>
                     {pendingOrder.orderType === 'Premium' ? '🌟 Premium' :
                      pendingOrder.orderType === 'Urgent' ? '🚨 Urgent' :
                      pendingOrder.orderType === 'Bonus' ? '💰 Bonus' :
                      pendingOrder.orderType === 'Smart Match' ? '🎯 Smart Match' :
                      'New Order'}!
                   </span>
-                  <span style={{ color: '#f44336', fontWeight: 'bold' }}>{orderExpiryTimer}s</span>
+                  <span style={{ 
+                    color: '#ff3b30', 
+                    fontWeight: '700',
+                    fontSize: '16px',
+                    backgroundColor: 'rgba(255,59,48,0.1)',
+                    padding: '4px 8px',
+                    borderRadius: '6px'
+                  }}>
+                    {orderExpiryTimer}s
+                  </span>
                 </div>
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontWeight: 'bold' }}>{pendingOrder.restaurantName}</div>
-                  <div style={{ color: '#666' }}>→ {pendingOrder.customerName}</div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4CAF50' }}>
-                    £{pendingOrder.estimatedPay.toFixed(2)} • {pendingOrder.estimatedDistance} mi
-                    {currentSurge > 1.2 && ` • ${currentSurge.toFixed(1)}x surge`}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '4px' }}>
+                    {pendingOrder.restaurantName}
+                  </div>
+                  <div style={{ color: '#666', fontSize: '14px', marginBottom: '8px' }}>
+                    → {pendingOrder.customerName}
+                  </div>
+                  <div style={{ 
+                    fontSize: '22px', 
+                    fontWeight: '800', 
+                    color: '#34c759',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    £{pendingOrder.estimatedPay.toFixed(2)}
+                    <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                      • {pendingOrder.estimatedDistance} mi
+                    </span>
+                    {currentSurge > 1.2 && (
+                      <span style={{ 
+                        fontSize: '12px', 
+                        color: '#ff9500', 
+                        fontWeight: '600',
+                        backgroundColor: 'rgba(255,149,0,0.1)',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        {currentSurge.toFixed(1)}x surge
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
                   <button 
                     onClick={acceptOrder}
                     style={{
                       flex: 1,
-                      padding: '12px',
-                      backgroundColor: '#4CAF50',
+                      padding: '16px',
+                      background: 'linear-gradient(135deg, #34c759 0%, #30d158 100%)',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '12px',
                       cursor: 'pointer',
-                      fontWeight: 'bold'
+                      fontWeight: '700',
+                      fontSize: '16px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 15px rgba(52,199,89,0.3)'
                     }}
+                    className="button-press"
                   >
                     Accept
                   </button>
@@ -747,14 +959,18 @@ function App() {
                     onClick={rejectOrder}
                     style={{
                       flex: 1,
-                      padding: '12px',
-                      backgroundColor: '#f44336',
+                      padding: '16px',
+                      background: 'linear-gradient(135deg, #ff3b30 0%, #ff6961 100%)',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '12px',
                       cursor: 'pointer',
-                      fontWeight: 'bold'
+                      fontWeight: '700',
+                      fontSize: '16px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 15px rgba(255,59,48,0.3)'
                     }}
+                    className="button-press"
                   >
                     Reject
                   </button>
@@ -1297,14 +1513,96 @@ function App() {
       height: '100vh', 
       backgroundColor: '#000', 
       color: '#fff',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      {renderScreen()}
+      {/* Background Pattern */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: 'radial-gradient(circle at 20% 80%, #1a1a1a 0%, transparent 50%), radial-gradient(circle at 80% 20%, #1a1a1a 0%, transparent 50%), radial-gradient(circle at 40% 40%, #0a0a0a 0%, transparent 50%)',
+        opacity: 0.3,
+        pointerEvents: 'none'
+      }} />
+      
+      {/* Animated Background Elements */}
+      <div style={{
+        position: 'absolute',
+        top: '10%',
+        left: '10%',
+        width: '100px',
+        height: '100px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(0,122,255,0.1) 0%, transparent 70%)',
+        animation: 'float 6s ease-in-out infinite',
+        pointerEvents: 'none'
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: '60%',
+        right: '15%',
+        width: '150px',
+        height: '150px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,59,48,0.1) 0%, transparent 70%)',
+        animation: 'float 8s ease-in-out infinite reverse',
+        pointerEvents: 'none'
+      }} />
+      
+      {/* Main Content */}
+      <div style={{ position: 'relative', zIndex: 1, height: '100vh' }}>
+        {renderScreen()}
+      </div>
       
       <style jsx>{`
         @keyframes scan {
           0% { top: 0; }
           100% { top: 100%; }
+        }
+        
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .notification-enter {
+          animation: slideIn 0.3s ease-out;
+        }
+        
+        .card-hover {
+          transition: all 0.2s ease;
+        }
+        
+        .card-hover:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .button-press {
+          transition: all 0.1s ease;
+        }
+        
+        .button-press:active {
+          transform: scale(0.95);
         }
       `}</style>
     </div>
