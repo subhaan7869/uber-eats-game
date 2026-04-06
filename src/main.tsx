@@ -1,6 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App-simple.tsx';
+import App from './App-complete.tsx';
 import './index.css';
 
 // Register service worker for background notifications
