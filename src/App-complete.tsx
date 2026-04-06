@@ -497,6 +497,22 @@ function App() {
     { rank: 8, name: 'You', tier: user.tier, points: user.points, deliveries: user.deliveries, rating: user.rating, earnings: earnings }
   ]);
 
+  // Initialize with a test notification
+  useEffect(() => {
+    const testNotification: OfflineNotification = {
+      id: Math.random().toString(),
+      type: 'missed_opportunity',
+      title: '👋 Welcome to Uber Eats!',
+      message: 'Complete your profile to start receiving orders and earning money.',
+      priority: 'high',
+      timestamp: Date.now(),
+      isRead: false,
+      actionable: true,
+      actionUrl: 'documents'
+    };
+    setOfflineNotifications([testNotification]);
+  }, []);
+
 // Enhanced sound system with toggle
   const playSound = (type: 'order_request' | 'order_accept' | 'order_complete' | 'notification' | 'error' | 'success' | 'surge' | 'warning') => {
     if (!soundEnabled) return;
@@ -642,6 +658,20 @@ function App() {
       setUser(prev => ({ ...prev, faceVerified: true }));
       setCurrentScreen('home');
       playSound('success'); // Play success sound for verification complete
+      
+      // Add a welcome notification
+      const welcomeNotification: OfflineNotification = {
+        id: Math.random().toString(),
+        type: 'rank_decay_warning',
+        title: '🎉 Welcome!',
+        message: 'Face verification completed! You can now go online and start earning.',
+        priority: 'high',
+        timestamp: Date.now(),
+        isRead: false,
+        actionable: true,
+        actionUrl: 'home'
+      };
+      setOfflineNotifications(prev => [welcomeNotification, ...prev]);
     }, 3000);
   };
 
@@ -1968,8 +1998,22 @@ function App() {
                 color: '#666',
                 textAlign: 'center'
               }}>
-                {isVerifying ? '📷 Scanning...' : '👤'}
+                {isVerifying ? '📷' : '👤'}
               </div>
+              {isVerifying && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '10px',
+                  left: '0',
+                  right: '0',
+                  textAlign: 'center',
+                  color: '#2196F3',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}>
+                  Scanning...
+                </div>
+              )}
             </div>
             
             <button 
