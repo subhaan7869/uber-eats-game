@@ -2635,7 +2635,10 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setUser(u => ({ ...u, isOnline: false, faceVerified: false }));
-                    </motion.div>
+                        }}
+                      >
+                        <span className="text-red-500 font-black text-sm">GO OFFLINE</span>
+                      </button>
                   ) : (
                     /* Offline - Full menu */
                     <motion.div 
