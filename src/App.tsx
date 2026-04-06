@@ -2662,6 +2662,8 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
+                      className="absolute inset-0 bg-black/95"
+                    >
                       <div className="overflow-y-auto px-6 pb-12 custom-scrollbar flex-1">
                         {!user.isOnline ? (
                           <>
