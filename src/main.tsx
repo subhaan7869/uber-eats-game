@@ -1,6 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import App from './App-test.tsx'; // Temporary test import
+import App from './App-simple.tsx';
 import './index.css';
 
 // Register service worker for background notifications
