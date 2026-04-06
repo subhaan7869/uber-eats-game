@@ -765,6 +765,20 @@ function App() {
       case 'onboarding':
         return (
           <div style={{ textAlign: 'center', padding: '40px 20px', maxWidth: '400px' }}>
+            {/* VERY OBVIOUS TEST BOX */}
+            <div style={{
+              backgroundColor: '#ff0000',
+              color: '#ffffff',
+              padding: '20px',
+              borderRadius: '10px',
+              marginBottom: '20px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              border: '3px solid #ffff00'
+            }}>
+              🔥 ENHANCED UI TEST - If you see this red box, enhanced UI is working! 🔥
+            </div>
+            
             <div style={{ 
               width: '80px', 
               height: '80px', 
